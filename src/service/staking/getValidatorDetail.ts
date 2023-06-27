@@ -8,8 +8,8 @@ import { sortDenoms } from 'lib/common'
 import { div, plus, times } from 'lib/math'
 import memoizeCache from 'lib/memoizeCache'
 
-import { getBalance } from 'service/bank'
-import { getCommissions, getUndelegateSchedule, generateValidatorResponse } from './helper'
+import { getBalances } from 'service/bank'
+import { getUndelegateSchedule, generateValidatorResponse } from './helper'
 
 interface RewardsByDenom {
   denom: string
@@ -40,7 +40,7 @@ export async function getValidatorDetailUncached(
   }
 
   const validator = generateValidatorResponse(valInfo)
-  const commissions: Coin[] = sortDenoms(await getCommissions(operatorAddress))
+  const commissions: Coin[] = sortDenoms(await lcd.getCommissions(operatorAddress))
 
   const result: ValidatorDetailsReturn = {
     ...validator,
@@ -78,7 +78,7 @@ export async function getValidatorDetailUncached(
       }
     }
 
-    const myBalance = await getBalance(account)
+    const myBalance = await getBalances(account)
     const ulunaBalance = filter(myBalance.balance, { denom: 'uluna' })[0]
 
     result.myDelegatable = ulunaBalance && ulunaBalance.delegatable

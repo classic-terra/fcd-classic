@@ -1,8 +1,6 @@
 export { default as getStaking } from './getStaking'
 export * from './getValidators'
 export * from './getValidatorDetail'
-export * from './getDelegationTxs'
 export * from './getClaims'
-export * from './getDelegators'
 export * from './getValidatorReturn'
 export * from './helper'

@@ -5,7 +5,6 @@ import { startOfDay } from 'date-fns'
 import config from 'config'
 import { TxEntity, ValidatorInfoEntity } from 'orm'
 
-import * as lcd from 'lib/lcd'
 import { div, plus, minus, times } from 'lib/math'
 import { getQueryDateTime } from 'lib/time'
 import memoizeCache from 'lib/memoizeCache'
@@ -100,15 +99,6 @@ export async function getRawDelegationTxs(param: GetRawDelegationTxsParam): Prom
   return {
     next,
     txs: txs.map((tx) => ({ ...tx.data, id: tx.id, chainId: tx.chainId }))
-  }
-}
-
-export async function getCommissions(operatorAddr: string): Promise<Coin[]> {
-  try {
-    const totalRewards = await lcd.getCommissions(operatorAddr)
-    return totalRewards ? totalRewards.val_commission.commission : []
-  } catch (e) {
-    return []
   }
 }
 

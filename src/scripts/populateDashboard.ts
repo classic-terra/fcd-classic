@@ -10,6 +10,7 @@ import {
   getBlockRewardsByDay,
   getStakingReturnByDay,
   getTxVolumeByDay,
+  getAccountCountByDay,
   getDailyActiveAccount
 } from 'collector/dashboard'
 
@@ -64,19 +65,19 @@ async function getAccountCountHistory(): Promise<{
 
 async function populateDashboard() {
   await initORM()
-  const accountGrowth = await getAccountCountHistory()
+  const accountGrowth = await getAccountCountByDay()
 
   for (const dateKey of Object.keys(accountGrowth)) {
     const date = startOfDay(parseISO(dateKey))
     const dashboard = await getDashboard(date)
     if (dashboard) {
-      console.log('updating ac growth date ', dateKey)
+      console.log('updating account growth date of', dateKey)
       await getRepository(DashboardEntity).update(dashboard.id, {
         activeAccount: accountGrowth[dateKey].activeAccount,
         totalAccount: accountGrowth[dateKey].totalAccount
       })
     } else {
-      console.log('New insert of ac growth ', dateKey)
+      console.log('new account growth of', dateKey)
       await getRepository(DashboardEntity).save({
         timestamp: date,
         chainId: config.CHAIN_ID,
@@ -92,12 +93,12 @@ async function populateDashboard() {
     const date = startOfDay(parseISO(dateKey))
     const dashboard = await getDashboard(date)
     if (dashboard) {
-      console.log('updating tax reward of date ', dateKey)
+      console.log('updating tax reward of', dateKey)
       await getRepository(DashboardEntity).update(dashboard.id, {
         taxReward: taxRewards[dateKey]
       })
     } else {
-      console.log('New insert tax reward of ', dateKey)
+      console.log('new tax reward of', dateKey)
       await getRepository(DashboardEntity).save({
         timestamp: date,
         chainId: config.CHAIN_ID,
@@ -112,12 +113,12 @@ async function populateDashboard() {
     const date = startOfDay(parseISO(dateKey))
     const dashboard = await getDashboard(date)
     if (dashboard) {
-      console.log('updating tx volume of date ', dateKey)
+      console.log('updating tx volume of', dateKey)
       await getRepository(DashboardEntity).update(dashboard.id, {
         txVolume: txVolumes[dateKey]
       })
     } else {
-      console.log('New insert  tx volume of ', dateKey)
+      console.log('new tx volume of', dateKey)
       await getRepository(DashboardEntity).save({
         timestamp: date,
         chainId: config.CHAIN_ID,
@@ -131,13 +132,13 @@ async function populateDashboard() {
     const date = startOfDay(parseISO(dateKey))
     const dashboard = await getDashboard(date)
     if (dashboard) {
-      console.log('updating staking of date ', dateKey)
+      console.log('updating staking of', dateKey)
       await getRepository(DashboardEntity).update(dashboard.id, {
         avgStaking: stakingReturns[dateKey].avgStaking,
         reward: stakingReturns[dateKey].reward
       })
     } else {
-      console.log('New insert staking of ', dateKey)
+      console.log('new staking of', dateKey)
       await getRepository(DashboardEntity).save({
         timestamp: date,
         chainId: config.CHAIN_ID,

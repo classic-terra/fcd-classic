@@ -3,7 +3,7 @@ import { getRepository } from 'typeorm'
 
 import { ValidatorReturnInfoEntity, BlockEntity } from 'orm'
 
-import { ExtendedValidator, getExtendedValidators } from 'lib/lcd'
+import { ExtendedValidator, getValidatorsAndConsensus } from 'lib/lcd'
 import { collectorLogger as logger } from 'lib/logger'
 import { ONE_DAY_IN_MS } from 'lib/constant'
 import { getAvgVotingPower, getAvgPrice } from 'service/staking'
@@ -99,7 +99,7 @@ export async function collectValidatorReturn() {
     return
   }
 
-  const validatorsList = await getExtendedValidators()
+  const validatorsList = await getValidatorsAndConsensus()
   logger.info(`Got a list of ${validatorsList.length} validators`)
   logger.info(`Pre-calculator started for validators from date ${to.toString()}`)
   // used -10 for just to make sure it doesn't calculate for today

@@ -1,4 +1,4 @@
-import { get } from 'lodash'
+import { get, compact } from 'lodash'
 import { isSuccessfulTx } from 'lib/tx'
 import { getRawDelegationTxs } from './helper'
 
@@ -31,69 +31,68 @@ function extractEvents(
   const msgs = get(tx, 'tx.value.msg')
   const { id, chainId, height, timestamp, txhash } = tx
 
-  return msgs.map((msg): GetDelegationEventsReturn | undefined => {
-    switch (msg.type) {
-      case 'staking/MsgDelegate': {
-        if (get(msg, 'value.validator_address') !== valOpAddr) {
-          return undefined
-        }
+  return compact(
+    msgs.map((msg) => {
+      switch (msg.type) {
+        case 'staking/MsgDelegate': {
+          if (get(msg, 'value.validator_address') !== valOpAddr) {
+            return
+          }
 
-        const type = 'Delegate'
-        const amount = {
-          denom: get(msg, 'value.amount.denom'),
-          amount: get(msg, 'value.amount.amount')
+          const type = 'Delegate'
+          const amount = {
+            denom: get(msg, 'value.amount.denom'),
+            amount: get(msg, 'value.amount.amount')
+          }
+          return { id, chainId, height, txhash, type, amount, timestamp }
         }
-        return { id, chainId, height, txhash, type, amount, timestamp }
+        case 'staking/MsgCreateValidator': {
+          if (get(msg, 'value.validator_address') !== valOpAddr) {
+            return
+          }
+
+          const type = 'Create Validator'
+          const amount = {
+            denom: get(msg, 'value.value.denom'),
+            amount: get(msg, 'value.value.amount')
+          }
+          return { id, chainId, height, txhash, type, amount, timestamp }
+        }
+        case 'staking/MsgBeginRedelegate': {
+          const srcAddr = get(msg, 'value.validator_src_address')
+          const dstAddr = get(msg, 'value.validator_dst_address')
+          if (srcAddr !== valOpAddr && dstAddr !== valOpAddr) {
+            return
+          }
+
+          const type = 'Redelegate'
+          let amt = get(msg, 'value.amount.amount')
+
+          if (srcAddr === valOpAddr && amt) {
+            amt = `-${amt}`
+          }
+
+          const amount = {
+            denom: 'uluna',
+            amount: amt
+          }
+          return { id, chainId, height, txhash, type, amount, timestamp }
+        }
+        case 'staking/MsgUndelegate': {
+          if (get(msg, 'value.validator_address') !== valOpAddr) {
+            return
+          }
+
+          const type = 'Undelegate'
+          const amount = {
+            denom: get(msg, 'value.amount.denom'),
+            amount: `-${get(msg, 'value.amount.amount')}`
+          }
+          return { id, chainId, height, txhash, type, amount, timestamp }
+        }
       }
-      case 'staking/MsgCreateValidator': {
-        if (get(msg, 'value.validator_address') !== valOpAddr) {
-          return undefined
-        }
-
-        const type = 'Create Validator'
-        const amount = {
-          denom: get(msg, 'value.value.denom'),
-          amount: get(msg, 'value.value.amount')
-        }
-        return { id, chainId, height, txhash, type, amount, timestamp }
-      }
-      case 'staking/MsgBeginRedelegate': {
-        const srcAddr = get(msg, 'value.validator_src_address')
-        const dstAddr = get(msg, 'value.validator_dst_address')
-        if (srcAddr !== valOpAddr && dstAddr !== valOpAddr) {
-          return undefined
-        }
-
-        const type = 'Redelegate'
-        let amt = get(msg, 'value.amount.amount')
-
-        if (srcAddr === valOpAddr && amt) {
-          amt = `-${amt}`
-        }
-
-        const amount = {
-          denom: 'uluna',
-          amount: amt
-        }
-        return { id, chainId, height, txhash, type, amount, timestamp }
-      }
-      case 'staking/MsgUndelegate': {
-        if (get(msg, 'value.validator_address') !== valOpAddr) {
-          return undefined
-        }
-
-        const type = 'Undelegate'
-        const amount = {
-          denom: get(msg, 'value.amount.denom'),
-          amount: `-${get(msg, 'value.amount.amount')}`
-        }
-        return { id, chainId, height, txhash, type, amount, timestamp }
-      }
-      default: {
-        return undefined
-      }
-    }
-  })
+    })
+  )
 }
 
 export async function getDelegationTxs(param: GetDelegationEventsParam): Promise<DelegationTxsReturn> {
