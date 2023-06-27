@@ -26,10 +26,7 @@ async function detectValidators(txs: Tx[]) {
   const addresses = uniq(
     txs
       .filter(
-        (tx) =>
-          (tx?.body?.messages ?? []).some(
-            (msg) => typeof msg['@type'] == 'string' && !msg['@type'].startsWith('/terra.oracle')
-          ) // ignore oracle messages
+        (tx) => (tx?.body?.messages ?? []).some((msg) => !msg.toData()['@type'].startsWith('/terra.oracle')) // ignore oracle messages
       )
       .map((tx) => JSON.stringify(tx).match(VALIDATOR_REGEX))
       .flat()
