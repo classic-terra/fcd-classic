@@ -1,8 +1,5 @@
-import { getRepository, getConnection } from 'typeorm'
-import { parseISO, startOfDay, startOfToday } from 'date-fns'
-
-import { getQueryDateTime, getDateFromDateTime } from 'lib/time'
-
+import { getRepository } from 'typeorm'
+import { parseISO, startOfDay } from 'date-fns'
 import config from 'config'
 import { DashboardEntity, init as initORM } from 'orm'
 
@@ -10,8 +7,7 @@ import {
   getBlockRewardsByDay,
   getStakingReturnByDay,
   getTxVolumeByDay,
-  getAccountCountByDay,
-  getDailyActiveAccount
+  getAccountCountByDay
 } from 'collector/dashboard'
 
 async function getDashboard(datetime: Date): Promise<DashboardEntity | undefined> {
@@ -21,57 +17,16 @@ async function getDashboard(datetime: Date): Promise<DashboardEntity | undefined
   })
   return dashboard
 }
-// NB: we are using the general infos total account count for populating dashboard because
-// getting the total count for everyday from account_tx table is a costly operation which leads to long time.
-
-async function getDailyTotalAccounts(): Promise<{ date: string; total_account_count: number }[]> {
-  const rawQuery = `SELECT MAX(total_account_count) AS total_account_count, DATE(datetime) as date 
-    FROM general_info WHERE datetime < '${getQueryDateTime(startOfToday())}' GROUP BY date ORDER BY date ASC`
-
-  const result: {
-    total_account_count: number
-    date: string
-  }[] = await getConnection().query(rawQuery)
-  return result
-}
-
-async function getAccountCountHistory(): Promise<{
-  [date: string]: {
-    activeAccount: number
-    totalAccount: number
-  }
-}> {
-  const totalAccount = await getDailyTotalAccounts()
-  const activeAccount = await getDailyActiveAccount()
-
-  const totalAccountMap = totalAccount.reduce((acc, info) => {
-    const dateKey = getDateFromDateTime(new Date(info.date))
-    acc[dateKey] = info.total_account_count
-    return acc
-  }, {})
-
-  const res = activeAccount.reduce((acc, info) => {
-    const dateKey = getDateFromDateTime(new Date(info.date))
-    if (totalAccountMap[dateKey]) {
-      acc[dateKey] = {
-        activeAccount: info.active_account_count,
-        totalAccount: totalAccountMap[dateKey]
-      }
-    }
-    return acc
-  }, {})
-  return res
-}
 
 async function populateDashboard() {
   await initORM()
-  const accountGrowth = await getAccountCountByDay()
 
+  const accountGrowth = await getAccountCountByDay()
   for (const dateKey of Object.keys(accountGrowth)) {
     const date = startOfDay(parseISO(dateKey))
     const dashboard = await getDashboard(date)
     if (dashboard) {
-      console.log('updating account growth date of', dateKey)
+      console.log('updating account growth of', dateKey)
       await getRepository(DashboardEntity).update(dashboard.id, {
         activeAccount: accountGrowth[dateKey].activeAccount,
         totalAccount: accountGrowth[dateKey].totalAccount
@@ -86,9 +41,8 @@ async function populateDashboard() {
       })
     }
   }
-  // save block rewards.
-  const taxRewards = await getBlockRewardsByDay()
 
+  const taxRewards = await getBlockRewardsByDay()
   for (const dateKey of Object.keys(taxRewards)) {
     const date = startOfDay(parseISO(dateKey))
     const dashboard = await getDashboard(date)
@@ -107,7 +61,6 @@ async function populateDashboard() {
     }
   }
 
-  // save tx volume
   const txVolumes = await getTxVolumeByDay()
   for (const dateKey of Object.keys(txVolumes)) {
     const date = startOfDay(parseISO(dateKey))

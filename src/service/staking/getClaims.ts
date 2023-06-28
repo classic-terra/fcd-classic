@@ -47,7 +47,6 @@ function parseTxEntity(tx: TxEntity) {
     return {
       chainId: tx.chainId,
       txhash: tx.data['txhash'],
-      tx: tx.data['txhash'], // TODO: remove
       type,
       amounts: sortDenoms(amounts),
       timestamp: tx.data['timestamp']

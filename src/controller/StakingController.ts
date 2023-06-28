@@ -6,7 +6,7 @@ import { ErrorCodes } from 'lib/error'
 import { TERRA_OPERATOR_ADD_REGEX, TERRA_ACCOUNT_REGEX, MOVING_AVG_WINDOW_IN_DAYS } from 'lib/constant'
 import { daysBeforeTs } from 'lib/time'
 import {
-  getStaking,
+  getStakingForAccount,
   getValidators,
   getValidatorDetail,
   getClaims,
@@ -236,7 +236,7 @@ export default class StakingController extends KoaController {
     failure: ErrorCodes.INVALID_REQUEST_ERROR
   })
   async getStakingForAccount(ctx): Promise<void> {
-    success(ctx, await getStaking(ctx.params.account))
+    success(ctx, await getStakingForAccount(ctx.params.account))
   }
 
   /**

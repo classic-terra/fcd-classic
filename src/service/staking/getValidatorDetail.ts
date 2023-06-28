@@ -9,7 +9,7 @@ import { div, plus, times } from 'lib/math'
 import memoizeCache from 'lib/memoizeCache'
 
 import { getBalances } from 'service/bank'
-import { getUndelegateSchedule, generateValidatorResponse } from './helper'
+import { getUndelegateSchedule } from './getUndelegateSchedule'
 
 interface RewardsByDenom {
   denom: string
@@ -39,7 +39,7 @@ export async function getValidatorDetailUncached(
     return
   }
 
-  const validator = generateValidatorResponse(valInfo)
+  const validator = valInfo.createResponse()
   const commissions: Coin[] = sortDenoms(await lcd.getCommissions(operatorAddress))
 
   const result: ValidatorDetailsReturn = {

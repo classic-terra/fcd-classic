@@ -5,7 +5,7 @@ import { setupAgent, terminateAPITest } from './lib/agent'
 const ACCOUNT = 'terra12t890qauaz42ltzzx3rxj7gu74jvwmzw9659zn'
 const VALIDATOR_DELEGATED = 'terravaloper1uymwfafhq8fruvcjq8k67a29nqzrxnv9m6m427'
 const VALIDATOR_NOT_DELEGATED = 'terravaloper1qk46lk4kt4f90y4quv9mds0q26khhwdsjme29h'
-const VALIDATOR_CLAIMED = 'terravaloper1uymwfafhq8fruvcjq8k67a29nqzrxnv9m6m427'
+const VALIDATOR_CLAIMED = 'terravaloper1mpmn2y9qw4dn6z2q3a7hy4c3wjztmvu7wz4r4u'
 
 const coinObject = {
   denom: expect.any(String),
@@ -110,7 +110,8 @@ describe('Staking', () => {
       limit: expect.any(Number),
       claims: expect.arrayContaining([
         {
-          tx: expect.any(String),
+          chainId: expect.any(String),
+          txhash: expect.any(String),
           type: expect.any(String),
           amounts: expect.arrayContaining([coinObject]),
           timestamp: expect.any(String)

@@ -8,7 +8,7 @@ import memoizeCache from 'lib/memoizeCache'
 
 import { getBalances } from '../bank'
 import { getValidators } from './getValidators'
-import { getUndelegateSchedule } from './helper'
+import { getUndelegateSchedule } from './getUndelegateSchedule'
 
 function getTotalRewardsAdjustedToLuna(rewards: Coin[], prices: DenomMap): string {
   return rewards.reduce((acc, item) => {
@@ -141,4 +141,4 @@ export async function getStakingUncached(address: string): Promise<GetStakingRes
   }
 }
 
-export default memoizeCache(getStakingUncached, { promise: true, maxAge: 10 * 1000 })
+export const getStakingForAccount = memoizeCache(getStakingUncached, { promise: true, maxAge: 10 * 1000 })
