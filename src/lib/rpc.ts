@@ -26,7 +26,7 @@ async function getRequest(path: string, params?: Record<string, string>): Promis
   }
 
   const response = await request(url, options)
-    .then((res) => {
+    .then(async (res) => {
       if (res.statusCode !== 200) {
         throw new Error('invalid status')
       }
@@ -34,7 +34,11 @@ async function getRequest(path: string, params?: Record<string, string>): Promis
       return res.body.json()
     })
     .catch((e) => {
-      logger.error(`RPC request to ${url} failed by ${e}`)
+      const isSuppress = e instanceof TypeError || e instanceof SyntaxError
+
+      if (!isSuppress) {
+        logger.error(`RPC request to ${url} failed by ${e}`)
+      }
     })
 
   if (!response || typeof response.jsonrpc !== 'string') {
