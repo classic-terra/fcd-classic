@@ -26,7 +26,7 @@ async function getRequest(path: string, params?: Record<string, string>): Promis
   }
 
   const response = await request(url, options)
-    .then(async (res) => {
+    .then((res) => {
       if (res.statusCode !== 200) {
         throw new Error('invalid status')
       }
