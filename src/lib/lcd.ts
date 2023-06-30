@@ -1,51 +1,13 @@
-import { request, Agent } from 'undici'
 import config from 'config'
 import { pick, pickBy } from 'lodash'
 import { plus, times, div, getIntegerPortion } from 'lib/math'
+import { request } from 'lib/request'
 import { ErrorTypes, APIError } from './error'
-
-const agent = new Agent({
-  connect: {
-    rejectUnauthorized: false
-  }
-})
 
 const NOT_FOUND_REGEX = /(?:not found|no dele|not exist|failed to find|unknown prop|empty bytes|No price reg)/i
 
 async function get(path: string, params?: Record<string, unknown>): Promise<any> {
-  const urlObj = new URL(config.LCD_URI)
-  const options = {
-    headers: {
-      'Content-Type': 'application/json',
-      'User-Agent': 'terra-fcd'
-    },
-    dispatcher: agent
-  }
-
-  // If username exists, add it to
-  if (urlObj.username) {
-    const token = Buffer.from(`${urlObj.username}:${urlObj.password}`).toString('base64')
-    options.headers['Authorization'] = `Basic ${token}`
-  }
-
-  // Set url from URL object to remove username:password in address
-  let url = `${urlObj.origin}${urlObj.pathname.length !== 1 ? urlObj.pathname : ''}${path}`
-
-  // Append params to searchParams
-  params &&
-    Object.keys(params).forEach((key) => {
-      if (params[key] !== undefined) {
-        urlObj.searchParams.append(key, `${params[key]}`)
-      }
-    })
-
-  // Append query string
-  const qs = urlObj.searchParams.toString()
-  if (qs.length) {
-    url += `?${qs}`
-  }
-
-  const res = await request(url, options).then(async (res) => {
+  const res = await request(`${config.LCD_URI}${path}`, params).then(async (res) => {
     const json = await res.body.json()
 
     if (res.statusCode >= 400 && json.message && NOT_FOUND_REGEX.test(json.message)) {
