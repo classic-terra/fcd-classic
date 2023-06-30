@@ -13,6 +13,7 @@ const agent = new Agent({
 const NOT_FOUND_REGEX = /(?:not found|no dele|not exist|failed to find|unknown prop|empty bytes|No price reg)/i
 
 async function get(path: string, params?: Record<string, unknown>): Promise<any> {
+  const urlObj = new URL(config.LCD_URI)
   const options = {
     headers: {
       'Content-Type': 'application/json',
@@ -21,9 +22,25 @@ async function get(path: string, params?: Record<string, unknown>): Promise<any>
     dispatcher: agent
   }
 
-  let url = `${config.LCD_URI}${path}`
-  params && Object.keys(params).forEach((key) => params[key] === undefined && delete params[key])
-  const qs = new URLSearchParams(params as any).toString()
+  // If username exists, add it to
+  if (urlObj.username) {
+    const token = Buffer.from(`${urlObj.username}:${urlObj.password}`).toString('base64')
+    options.headers['Authorization'] = `Basic ${token}`
+  }
+
+  // Set url from URL object to remove username:password in address
+  let url = `${urlObj.origin}${urlObj.pathname.length !== 1 ? urlObj.pathname : ''}${path}`
+
+  // Append params to searchParams
+  params &&
+    Object.keys(params).forEach((key) => {
+      if (params[key] !== undefined) {
+        urlObj.searchParams.append(key, `${params[key]}`)
+      }
+    })
+
+  // Append query string
+  const qs = urlObj.searchParams.toString()
   if (qs.length) {
     url += `?${qs}`
   }
