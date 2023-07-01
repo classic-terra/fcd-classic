@@ -28,18 +28,27 @@ export async function getValidatorOperatorAddressByConsensusAddress(b64: string,
     return operatorAddress
   }
 
-  const valsAndCons = await lcd.getValidatorsAndConsensus('BOND_STATUS_BONDED', height)
+  const statusOrder: LcdValidatorStatus[] = ['BOND_STATUS_BONDED', 'BOND_STATUS_UNBONDING', 'BOND_STATUS_UNBONDED']
 
-  valsAndCons.forEach((v) => {
-    if (v.lcdConsensus && v.lcdConsensus.address) {
-      const b64i = Buffer.from(bech32.fromWords(bech32.decode(v.lcdConsensus.address).words)).toString('base64')
-
-      validatorCache.set(b64i, v.lcdValidator.operator_address)
+  await Bluebird.each(statusOrder, async (status) => {
+    // early exit
+    if (validatorCache.has(b64)) {
+      return
     }
+
+    const valsAndCons = await lcd.getValidatorsAndConsensus(status, height)
+
+    valsAndCons.forEach((v) => {
+      if (v.lcdConsensus && v.lcdConsensus.address) {
+        const b64i = Buffer.from(bech32.fromWords(bech32.decode(v.lcdConsensus.address).words)).toString('base64')
+
+        validatorCache.set(b64i, v.lcdValidator.operator_address)
+      }
+    })
   })
 
   if (!validatorCache.has(b64)) {
-    throw new Error(`cannot find ${b64} address at height ${height}`)
+    throw new Error(`cannot find validator address ${b64} at height ${height}`)
   }
 
   return validatorCache.get(b64)
