@@ -39,7 +39,7 @@ export async function collectDashboard(timestamp: number) {
     const dateKey = getDateFromDateTime(dayIt)
     dashboard.timestamp = dayIt
     dashboard.chainId = config.CHAIN_ID
-    dashboard.txVolume = transactionVol[dateKey]
+    dashboard.txVolume = transactionVol[dateKey] || {}
     dashboard.reward = stakingReturn[dateKey]?.reward
     dashboard.avgStaking = stakingReturn[dateKey]?.avgStaking
     dashboard.taxReward = taxRewards[dateKey]

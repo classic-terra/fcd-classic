@@ -59,7 +59,8 @@ async function populateDashboard() {
         timestamp: date,
         chainId: config.CHAIN_ID,
         activeAccount: accountGrowth[dateKey].activeAccount,
-        totalAccount: accountGrowth[dateKey].totalAccount
+        totalAccount: accountGrowth[dateKey].totalAccount,
+        txVolume: {}
       })
     }
   }
@@ -78,7 +79,8 @@ async function populateDashboard() {
       await mgr.save(DashboardEntity, {
         timestamp: date,
         chainId: config.CHAIN_ID,
-        taxReward: taxRewards[dateKey]
+        taxReward: taxRewards[dateKey],
+        txVolume: {}
       })
     }
   }
@@ -99,7 +101,8 @@ async function populateDashboard() {
         timestamp: date,
         chainId: config.CHAIN_ID,
         avgStaking: stakingReturns[dateKey].avgStaking,
-        reward: stakingReturns[dateKey].reward
+        reward: stakingReturns[dateKey].reward,
+        txVolume: {}
       })
     }
   }
