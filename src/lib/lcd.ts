@@ -292,15 +292,15 @@ export async function getValidators(status?: LcdValidatorStatus, strHeight?: str
   const height = calculateHeightParam(strHeight)
 
   if (status) {
-    return (await get(`/cosmos/staking/v1beta1/validators`, { status, height, 'pagination.limit': 200 })).validators
+    return (await get(`/cosmos/staking/v1beta1/validators`, { status, height, 'pagination.limit': 100000 })).validators
   }
 
   const url = `/cosmos/staking/v1beta1/validators`
 
   const [bonded, unbonded, unbonding] = await Promise.all([
-    get(url, { status: 'BOND_STATUS_BONDED', height, 'pagination.limit': 200 }),
-    get(url, { status: 'BOND_STATUS_UNBONDING', height }),
-    get(url, { status: 'BOND_STATUS_UNBONDED', height })
+    get(url, { status: 'BOND_STATUS_BONDED', height, 'pagination.limit': 100000 }),
+    get(url, { status: 'BOND_STATUS_UNBONDING', height, 'pagination.limit': 100000 }),
+    get(url, { status: 'BOND_STATUS_UNBONDED', height, 'pagination.limit': 100000 })
   ])
 
   return [bonded.validators, unbonded.validators, unbonding.validators].flat()
