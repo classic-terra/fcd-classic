@@ -1,5 +1,5 @@
 import * as sentry from '@sentry/node'
-import { getMinutes } from 'date-fns'
+import { getDay, getMinutes } from 'date-fns'
 import { getRepository, getManager, DeepPartial, EntityManager } from 'typeorm'
 import * as Bluebird from 'bluebird'
 import { bech32 } from 'bech32'
@@ -18,6 +18,8 @@ import { collectReward } from './reward'
 import { collectNetwork } from './network'
 import { collectPrice } from './price'
 import { collectGeneral } from './general'
+import { collectDashboard } from 'collector/dashboard'
+import { collectValidatorReturn } from 'collector/staking'
 
 const validatorCache = new Map()
 
@@ -148,6 +150,7 @@ export async function saveBlockInformation(
   latestIndexedBlock: BlockEntity | undefined
 ): Promise<BlockEntity | undefined> {
   const height: string = lcdBlock.block.header.height
+  let newDayBlockTimestamp = 0
   logger.info(`collectBlock: begin transaction for block ${height}`)
 
   const result: BlockEntity | undefined = await getManager()
@@ -168,13 +171,17 @@ export async function saveBlockInformation(
 
       // new block timestamp
       if (latestIndexedBlock && getMinutes(latestIndexedBlock.timestamp) !== getMinutes(newBlockEntity.timestamp)) {
-        const newBlockTimeStamp = new Date(newBlockEntity.timestamp).getTime()
+        const newBlockTimestamp = newBlockEntity.timestamp.getTime()
 
-        await collectReward(mgr, newBlockTimeStamp, height)
+        await collectReward(mgr, newBlockTimestamp, height)
         // await collectSwap(mgr, newBlockTimeStamp)
-        await collectNetwork(mgr, newBlockTimeStamp, height)
-        await collectPrice(mgr, newBlockTimeStamp, height)
-        await collectGeneral(mgr, newBlockTimeStamp, height)
+        await collectNetwork(mgr, newBlockTimestamp, height)
+        await collectPrice(mgr, newBlockTimestamp, height)
+        await collectGeneral(mgr, newBlockTimestamp, height)
+
+        if (getDay(latestIndexedBlock.timestamp) !== getDay(newBlockEntity.timestamp)) {
+          newDayBlockTimestamp = newBlockTimestamp
+        }
       }
 
       return newBlockEntity
@@ -195,6 +202,15 @@ export async function saveBlockInformation(
       sentry.captureException(err)
       return undefined
     })
+
+  if (newDayBlockTimestamp) {
+    // isolate dashboard and validator return collector
+    setTimeout(async () => {
+      await collectDashboard(newDayBlockTimestamp)
+      await collectValidatorReturn(newDayBlockTimestamp)
+    }, 0)
+  }
+
   return result
 }
 

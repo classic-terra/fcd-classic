@@ -7,7 +7,9 @@ import { ErrorTypes, APIError } from './error'
 const NOT_FOUND_REGEX = /(?:not found|no dele|not exist|failed to find|unknown prop|empty bytes|No price reg)/i
 
 async function get(path: string, params?: Record<string, unknown>): Promise<any> {
-  const res = await request(`${config.LCD_URI}${path}`, params).then(async (res) => {
+  const url = `${config.LCD_URI}${path}`
+
+  const res = await request(url, params).then(async (res) => {
     const json = await res.body.json()
 
     if (res.statusCode >= 400 && json.message && NOT_FOUND_REGEX.test(json.message)) {

@@ -14,7 +14,7 @@ import { getDateRangeOfLastMinute, getQueryDateTime, getStartOfPreviousMinuteTs 
 import { getUSDValue, getAllActivePrices, addDatetimeFilterToQuery } from './helper'
 
 function extractGasFee(tx: TxEntity): DenomMap {
-  const amount = get(tx, 'data.tx.value.fee.amount')
+  const amount = tx.data.tx.value.fee.amount
 
   return (amount || []).reduce((acc, item) => {
     acc[item.denom] = acc[item.denom] ? plus(acc[item.denom], item.amount) : item.amount
@@ -28,30 +28,27 @@ type ExtraFee = {
 }
 
 function extractExtraFee(tx): ExtraFee {
-  const logs = get(tx, 'data.logs')
-  return logs
-    ? logs.reduce(
-        (acc, item) => {
-          const taxes = get(item, 'log.tax')
-          const swapfee = get(item, 'log.swap_fee')
-          if (taxes) {
-            taxes.split(',').forEach((tax) => {
-              const { amount, denom } = splitDenomAndAmount(tax)
-              acc.tax[denom] = plus(acc.tax[denom], amount)
-            })
-          }
-          if (swapfee) {
-            const { amount, denom } = splitDenomAndAmount(swapfee)
+  return tx.data.logs.reduce(
+    (acc, item) => {
+      const taxes = get(item, 'log.tax')
+      const swapfee = get(item, 'log.swap_fee')
+      if (taxes) {
+        taxes.split(',').forEach((tax) => {
+          const { amount, denom } = splitDenomAndAmount(tax)
+          acc.tax[denom] = plus(acc.tax[denom], amount)
+        })
+      }
+      if (swapfee) {
+        const { amount, denom } = splitDenomAndAmount(swapfee)
 
-            if (isNumeric(amount)) {
-              acc.swapfee[denom] = plus(acc.swapfee[denom], amount)
-            }
-          }
-          return acc
-        },
-        { swapfee: {}, tax: {} }
-      )
-    : {}
+        if (isNumeric(amount)) {
+          acc.swapfee[denom] = plus(acc.swapfee[denom], amount)
+        }
+      }
+      return acc
+    },
+    { swapfee: {}, tax: {} }
+  )
 }
 
 async function getFees(timestamp: number): Promise<{

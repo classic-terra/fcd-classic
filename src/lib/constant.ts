@@ -9,3 +9,4 @@ export const DAYS_IN_YEAR = 365
 export const ONE_DAY_IN_MS = 60000 * 60 * 24
 export const LOCAL_TERRA_CHAIN_ID = 'localterra'
 export const BOND_DENOM = 'uluna'
+export const BURN_TAX_UPGRADE_HEIGHT = 9_346_889

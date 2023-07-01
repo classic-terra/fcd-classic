@@ -4,8 +4,6 @@ import { setupAgent, terminateAPITest } from './lib/agent'
 import { plus, div, times } from 'lib/math'
 import { MOVING_AVG_WINDOW_IN_DAYS, DAYS_IN_YEAR } from 'lib/constant'
 
-const DATA_POINT_COUNT = 4
-
 describe('Dashboard Test', () => {
   let agent: SuperTest<Test>
   let connection
