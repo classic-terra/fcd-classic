@@ -441,3 +441,14 @@ export async function getTreasuryParams(strHeight?: string): Promise<LcdTreasury
 export async function getTaxCaps(strHeight?: string): Promise<LcdTaxCap[]> {
   return (await get('/terra/treasury/v1beta1/tax_caps', { height: calculateHeightParam(strHeight) })).tax_caps || []
 }
+
+export async function getTaxExemptionList(strHeight?: string): Promise<string[]> {
+  return (
+    (
+      await get('/terra/treasury/v1beta1/burn_tax_exemption_list', {
+        height: calculateHeightParam(strHeight),
+        'pagination.limit': 100000
+      })
+    ).addresses || []
+  )
+}
