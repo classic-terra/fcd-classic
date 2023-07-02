@@ -37,7 +37,7 @@ export async function generateValidatorReturnEntities(
   const priceObj = await getAvgPrice(fromTs, fromTs + ONE_DAY_IN_MS)
   const valMap = await getExistingValidatorsMap(timestamp)
 
-  for (const extValidator of extValidators) {
+  for (const [index, extValidator] of extValidators.entries()) {
     const { lcdValidator: validator, votingPower } = extValidator
 
     if (!updateExisting && valMap[validator.operator_address]) {
@@ -56,7 +56,7 @@ export async function generateValidatorReturnEntities(
       logger.info(
         `collectValidatorReturn: reward ${validator.description.moniker}, total ${getIntegerPortion(
           div(reward, 1000000)
-        )}, commission ${getIntegerPortion(div(commission, 1000000))}`
+        )}, commission ${getIntegerPortion(div(commission, 1000000))}, progress (${index + 1}/${extValidators.length})`
       )
 
       const valRetEntity = valMap[validator.operator_address] || new ValidatorReturnInfoEntity()

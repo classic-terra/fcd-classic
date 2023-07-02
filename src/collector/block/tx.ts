@@ -117,7 +117,7 @@ export function getTax(
         denom: coin.denom,
         amount: min(getIntegerPortion(times(coin.amount, taxPolicy.rate)), cap)
       }
-      if (+tax.amount > 1000000000000) console.log(`Tax: ${msg.type}, txhash: ${lcdTx.txhash}`, tax)
+      // if (+tax.amount > 1000000000000) console.log(`Tax: ${msg.type}, txhash: ${lcdTx.txhash}`, tax)
       return tax
     })
   )
