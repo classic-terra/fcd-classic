@@ -125,12 +125,17 @@ export async function collectReward(mgr: EntityManager, timestamp: number, strHe
   ])
 
   await Bluebird.map(Object.keys(issuances), async (denom) => {
+    // early exit for denoms without reward
+    if (!rewardSum[denom]) {
+      return
+    }
+
     const reward = new RewardEntity()
     reward.denom = denom
     reward.datetime = datetime
-    reward.tax = get(rewards, `tax.${denom}`, '0.0')
+    reward.tax = get(rewards, `tax.${denom}`, '0')
     reward.taxUsd = getUSDValue(denom, reward.tax, activePrices)
-    reward.gas = get(rewards, `gas.${denom}`, '0.0')
+    reward.gas = get(rewards, `gas.${denom}`, '0')
     reward.gasUsd = getUSDValue(denom, reward.gas, activePrices)
     reward.sum = rewardSum[denom]
     reward.commission = commission[denom]
