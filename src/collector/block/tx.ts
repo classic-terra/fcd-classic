@@ -28,9 +28,9 @@ class TaxPolicy {
     ])
 
     this.rate = rate
-    ;(this.caps = mapValues(keyBy(lcdTaxCaps, 'denom'), 'tax_cap')),
-      (this.policyCap = treasuryParams.tax_policy.cap.amount),
-      (this.exemptionList = exemptionList)
+    this.caps = mapValues(keyBy(lcdTaxCaps, 'denom'), 'tax_cap')
+    this.policyCap = treasuryParams.tax_policy.cap.amount
+    this.exemptionList = exemptionList
   }
 
   public isExemption(from: string, to: string): boolean {
@@ -117,6 +117,7 @@ export function getTax(
         denom: coin.denom,
         amount: min(getIntegerPortion(times(coin.amount, taxPolicy.rate)), cap)
       }
+      if (+tax.amount > 1000000000000) console.log(`Tax: ${msg.type}, txhash: ${lcdTx.txhash}`, tax)
       return tax
     })
   )
@@ -138,34 +139,32 @@ function assignGasAndTax(lcdTx: Transaction.LcdTransaction, taxPolicy: TaxPolicy
   const taxArr: string[][] = []
 
   // gas = fee - tax
-  const gasObj = msgs.reduce((acc, msg) => {
-    const msgTaxes = getTax(lcdTx, msg, taxPolicy)
-    const taxPerMsg: string[] = []
-    for (let i = 0; i < msgTaxes.length; i = i + 1) {
-      const denom = msgTaxes[i].denom
-      const amount = msgTaxes[i].amount
+  const gasObj = msgs.reduce(
+    (acc, msg) => {
+      const msgTaxes = getTax(lcdTx, msg, taxPolicy)
+      const taxPerMsg: string[] = []
+      msgTaxes.forEach(({ denom, amount }) => {
+        if (acc[denom]) {
+          acc[denom] = minus(acc[denom], amount)
+        }
 
-      if (feeObj[denom]) {
-        feeObj[denom] = minus(feeObj[denom], amount)
-      }
+        if (acc[denom] === '0') {
+          delete acc[denom]
+        }
 
-      if (feeObj[denom] === '0') {
-        delete feeObj[denom]
-      }
-
-      taxPerMsg.push(`${amount}${denom}`)
-    }
-    taxArr.push(taxPerMsg)
-    return acc
-  }, feeObj)
+        taxPerMsg.push(`${amount}${denom}`)
+      })
+      taxArr.push(taxPerMsg)
+      return acc
+    },
+    { ...feeObj }
+  )
 
   // replace fee to gas
-  lcdTx.tx.value.fee.amount = Object.keys(gasObj).map((denom) => {
-    return {
-      denom,
-      amount: gasObj[denom]
-    }
-  })
+  lcdTx.tx.value.fee.amount = Object.keys(gasObj).map((denom) => ({
+    denom,
+    amount: gasObj[denom]
+  }))
 
   if (lcdTx.logs.length !== taxArr.length) {
     throw new Error('logs and tax array length must be equal')
