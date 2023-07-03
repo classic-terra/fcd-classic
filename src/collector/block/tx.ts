@@ -214,19 +214,22 @@ async function generateTxEntities(txHashes: string[], block: BlockEntity): Promi
   const txHashesUnique = new Set(txHashes)
 
   return compact(
-    await Bluebird.map([...txHashesUnique], async (txhash) => {
-      const lcdTx = await lcd.getTx(txhash).catch(() => null)
-      if (!lcdTx) return
-      assignGasAndTax(lcdTx, taxPolicy)
+    await Bluebird.map(
+      [...txHashesUnique],
+      async (txhash) => {
+        const lcdTx = await lcd.getTx(txhash)
+        assignGasAndTax(lcdTx, taxPolicy)
 
-      const txEntity = new TxEntity()
-      txEntity.chainId = block.chainId
-      txEntity.hash = lcdTx.txhash.toLowerCase()
-      txEntity.data = sanitizeTx(lcdTx)
-      txEntity.timestamp = new Date(lcdTx.timestamp)
-      txEntity.block = block
-      return txEntity
-    })
+        const txEntity = new TxEntity()
+        txEntity.chainId = block.chainId
+        txEntity.hash = lcdTx.txhash.toLowerCase()
+        txEntity.data = sanitizeTx(lcdTx)
+        txEntity.timestamp = new Date(lcdTx.timestamp)
+        txEntity.block = block
+        return txEntity
+      },
+      { concurrency: 16 }
+    )
   )
 }
 

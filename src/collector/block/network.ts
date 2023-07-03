@@ -53,18 +53,25 @@ function getVolumeCoins(lcdTx: Transaction.LcdTransaction, msg: Transaction.Amin
   return coins
 }
 
+const txMsgs = [
+  'bank/MsgSend',
+  'bank/MsgMultiSend',
+  'market/MsgSwapSend',
+  'wasm/MsgExecuteContract',
+  'wasm/MsgInstantiateContract',
+  'wasm/MsgInstantiateContract2',
+  'msgauth/MsgExecAuthorized',
+  'authz/MsgExec'
+]
+
 async function queryTxVolume(timestamp: number): Promise<DenomMap> {
   const qb = getRepository(TxEntity).createQueryBuilder('tx')
-  qb.andWhere(`data->'tx'->'value'->'msg'@>'[{ "type": "bank/MsgSend"}]'`)
-  qb.orWhere(`data->'tx'->'value'->'msg'@>'[{ "type": "bank/MsgMultiSend"}]'`)
-  qb.orWhere(`data->'tx'->'value'->'msg'@>'[{ "type": "market/MsgSwapSend"}]'`)
-  qb.orWhere(`data->'tx'->'value'->'msg'@>'[{ "type": "wasm/MsgExecuteContract"}]'`)
-  qb.orWhere(`data->'tx'->'value'->'msg'@>'[{ "type": "wasm/MsgInstantiateContract"}]'`)
-  qb.orWhere(`data->'tx'->'value'->'msg'@>'[{ "type": "wasm/MsgInstantiateContract2"}]'`)
-  qb.orWhere(`data->'tx'->'value'->'msg'@>'[{ "type": "msgauth/MsgExecAuthorized"}]'`)
-  qb.orWhere(`data->'tx'->'value'->'msg'@>'[{ "type": "authz/MsgExec"}]'`)
+  const jsonbMsgTypeCondition = txMsgs.map((msg) => `@ == "${msg}"`).join(' || ')
+  qb.andWhere(`data->'tx'->'value'->'msg' @? '$[*].type ? (${jsonbMsgTypeCondition})'`)
   addDatetimeFilterToQuery(timestamp, qb)
   const txs = await qb.getMany()
+
+  // txs.forEach((tx) => tx.data.tx.value.msg.forEach((msg) => console.log(msg)))
 
   return txs.reduce((volume, tx) => {
     const lcdTx = tx.data as Transaction.LcdTransaction

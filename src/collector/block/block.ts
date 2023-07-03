@@ -188,6 +188,16 @@ export async function saveBlockInformation(
     })
     .then((block: BlockEntity) => {
       logger.info('collectBlock: transaction finished')
+
+      // start dashboard and validator return collector at every midnight
+      if (newDayBlockTimestamp) {
+        // setTimeout for isolating process
+        setTimeout(async () => {
+          await collectDashboard(newDayBlockTimestamp)
+          await collectValidatorReturn(newDayBlockTimestamp)
+        }, 0)
+      }
+
       return block
     })
     .catch((err) => {
@@ -203,18 +213,11 @@ export async function saveBlockInformation(
       return undefined
     })
 
-  if (newDayBlockTimestamp) {
-    // isolate dashboard and validator return collector
-    setTimeout(async () => {
-      await collectDashboard(newDayBlockTimestamp)
-      await collectValidatorReturn(newDayBlockTimestamp)
-    }, 0)
-  }
-
   return result
 }
 
-export async function collectBlock(): Promise<void> {
+// returns true when blocks are up-to-date
+export async function collectBlock(): Promise<boolean> {
   let latestHeight
 
   // Wait until it gets proper block
@@ -237,16 +240,24 @@ export async function collectBlock(): Promise<void> {
     const lcdBlock = await lcd.getBlock(nextSyncHeight.toString())
 
     if (!lcdBlock) {
-      break
+      return true
     }
 
     latestIndexedBlock = await saveBlockInformation(lcdBlock, latestIndexedBlock)
 
     // Exit the loop after transaction error whether there's more blocks or not
     if (!latestIndexedBlock) {
-      break
+      return true
     }
 
     nextSyncHeight = nextSyncHeight + 1
+
+    // To prevent issues such as OOM, the loop is forcibly terminated every 100th
+    // iteration to avoid running for too long.
+    if (nextSyncHeight % 100 === 0) {
+      break
+    }
   }
+
+  return nextSyncHeight > latestHeight
 }
