@@ -10,7 +10,7 @@ import { div, plus, minus, times } from 'lib/math'
 import { getStartOfPreviousMinuteTs } from 'lib/time'
 import { isSuccessfulTx } from 'lib/tx'
 
-import { getUSDValue, addDatetimeFilterToQuery, getAllActivePrices } from './helper'
+import { getUSDValue, addDatetimeFilterToQuery, queryAllActivePrices } from './helper'
 
 async function getSpread(denom: string, price: string) {
   const swapRequestParams = {
@@ -179,7 +179,7 @@ async function setSwapFromTx(now: number): Promise<SwapEntity[]> {
     fee: {}
   })
 
-  const allActivePrices = await getAllActivePrices(getStartOfPreviousMinuteTs(now))
+  const allActivePrices = await queryAllActivePrices(getStartOfPreviousMinuteTs(now))
   const swapValuesWithUSDValues = getAllUSDValue(swapValues, allActivePrices)
   const swapSpread = await getSwapSpread(allActivePrices)
 

@@ -8,53 +8,56 @@ import { TxEntity, RewardEntity, BlockEntity } from 'orm'
 import * as lcd from 'lib/lcd'
 import { collectorLogger as logger } from 'lib/logger'
 import { plus, minus } from 'lib/math'
-import { isNumeric, splitDenomAndAmount } from 'lib/common'
+import { splitDenomAndAmount } from 'lib/common'
 import { getDateRangeOfLastMinute, getQueryDateTime, getStartOfPreviousMinuteTs } from 'lib/time'
 
-import { getUSDValue, getAllActivePrices, addDatetimeFilterToQuery } from './helper'
+import { getUSDValue, queryAllActivePrices, addDatetimeFilterToQuery } from './helper'
 
 function extractGasFee(tx: TxEntity): DenomMap {
-  const amount = tx.data.tx.value.fee.amount
-
-  return (amount || []).reduce((acc, item) => {
-    acc[item.denom] = acc[item.denom] ? plus(acc[item.denom], item.amount) : item.amount
+  return tx.data.tx.value.fee.amount.reduce((acc, item) => {
+    acc[item.denom] = plus(acc[item.denom], item.amount)
     return acc
-  }, {})
+  }, {} as DenomMap)
 }
 
-type ExtraFee = {
-  swapfee?: DenomMap
-  tax?: DenomMap
+function extractTax(tx: TxEntity): DenomMap {
+  return tx.data.logs.reduce((acc, item) => {
+    const taxes = typeof item.log === 'object' ? item.log.tax : null
+
+    if (taxes) {
+      taxes.split(',').forEach((tax) => {
+        const { amount, denom } = splitDenomAndAmount(tax)
+        acc[denom] = plus(acc[denom], amount)
+      })
+    }
+
+    return acc
+  }, {} as DenomMap)
 }
 
-function extractExtraFee(tx): ExtraFee {
-  return tx.data.logs.reduce(
-    (acc, item) => {
-      const taxes = get(item, 'log.tax')
-      const swapfee = get(item, 'log.swap_fee')
-      if (taxes) {
-        taxes.split(',').forEach((tax) => {
-          const { amount, denom } = splitDenomAndAmount(tax)
-          acc.tax[denom] = plus(acc.tax[denom], amount)
-        })
-      }
-      if (swapfee) {
-        const { amount, denom } = splitDenomAndAmount(swapfee)
+function extractSwapFee(tx: TxEntity): DenomMap {
+  return tx.data.logs.reduce((acc, item) => {
+    item.events &&
+      item.events.forEach((event) => {
+        if (event.type === 'swap') {
+          const swapFeeAttribute = event.attributes.find((attr) => attr.key === 'swap_fee')
 
-        if (isNumeric(amount)) {
-          acc.swapfee[denom] = plus(acc.swapfee[denom], amount)
+          if (swapFeeAttribute) {
+            const { amount, denom } = splitDenomAndAmount(swapFeeAttribute.value)
+            acc[denom] = plus(acc[denom], amount)
+
+            logger.debug(`SWAPFEE! ${tx.hash} ${denom} ${acc[denom]}`)
+          }
         }
-      }
-      return acc
-    },
-    { swapfee: {}, tax: {} }
-  )
+      })
+    return acc
+  }, {} as DenomMap)
 }
 
-async function getFees(timestamp: number): Promise<{
-  swapfee: DenomMap
-  tax: DenomMap
+async function queryFees(timestamp: number): Promise<{
   gas: DenomMap
+  tax: DenomMap
+  swapfee: DenomMap
 }> {
   const qb = getRepository(TxEntity).createQueryBuilder('tx').select(`tx.data`)
   addDatetimeFilterToQuery(timestamp, qb)
@@ -65,14 +68,17 @@ async function getFees(timestamp: number): Promise<{
   const txs = await qb.getMany()
   const rewardMerger = (obj, src) => mergeWith(obj, src, (o, s) => plus(o, s))
 
-  return txs.reduce(
-    (acc, tx) => {
-      const gas = extractGasFee(tx)
-      const swapFeeAndTax = extractExtraFee(tx)
-      return mergeWith(acc, { ...swapFeeAndTax, gas }, rewardMerger)
-    },
-    { swapfee: {}, tax: {}, gas: {} }
-  )
+  return txs
+    .filter((tx) => !tx.data.code)
+    .reduce(
+      (acc, tx) => {
+        const gas = extractGasFee(tx)
+        const tax = extractTax(tx)
+        const swapfee = extractSwapFee(tx)
+        return mergeWith(acc, { gas, tax, swapfee }, rewardMerger)
+      },
+      { gas: {}, tax: {}, swapfee: {} }
+    )
 }
 
 interface Rewards {
@@ -120,8 +126,8 @@ export async function collectReward(mgr: EntityManager, timestamp: number, strHe
   const datetime = new Date(getStartOfPreviousMinuteTs(timestamp))
   const [issuances, rewards, activePrices] = await Promise.all([
     lcd.getAllActiveIssuance(strHeight),
-    getFees(timestamp),
-    getAllActivePrices(datetime.getTime())
+    queryFees(timestamp),
+    queryAllActivePrices(datetime.getTime())
   ])
 
   await Bluebird.map(Object.keys(issuances), async (denom) => {

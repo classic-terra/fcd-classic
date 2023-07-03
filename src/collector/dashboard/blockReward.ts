@@ -1,6 +1,5 @@
 import { EntityManager } from 'typeorm'
 import { times, div, plus, getIntegerPortion } from 'lib/math'
-import { getDateFromDateTime } from 'lib/time'
 import { getPriceHistory } from 'service/dashboard'
 import { getPriceObjKey } from './helpers'
 import { getRewardsSumByDateDenom } from './rewardsInfo'
@@ -22,7 +21,7 @@ export async function getBlockRewardsByDay(
   const priceObj = await getPriceHistory(mgr, to, daysBefore)
 
   // TODO: rewards array will get very large over time. calculation can be done by daily, and use that for reducing
-  const rewardObj: RewardByDateMap = rewards.reduce((acc, item) => {
+  const rewardObj = rewards.reduce((acc, item) => {
     const price = priceObj[getPriceObjKey(item.date, item.denom)]
 
     if (!price && item.denom !== BOND_DENOM && item.denom !== 'ukrw') {
@@ -39,11 +38,13 @@ export async function getBlockRewardsByDay(
         ? times(item.tax_sum, ukrwPrice)
         : div(times(item.tax_sum, ukrwPrice), price)
 
-    const key = getDateFromDateTime(new Date(item.date))
-
-    acc[key] = getIntegerPortion(plus(acc[key] ?? 0, reward))
+    acc[item.date] = plus(acc[item.date], reward)
     return acc
   }, {} as RewardByDateMap)
+
+  for (const [date, tokens] of Object.entries(rewardObj)) {
+    rewardObj[date] = getIntegerPortion(tokens)
+  }
 
   return rewardObj
 }

@@ -2,7 +2,6 @@ import { EntityManager } from 'typeorm'
 import { subDays } from 'date-fns'
 import BigNumber from 'bignumber.js'
 import { NetworkEntity } from 'orm'
-import { getDateFromDateTime } from 'lib/time'
 import { convertDbTimestampToDate } from './helpers'
 import { getIntegerPortion } from 'lib/math'
 
@@ -38,11 +37,10 @@ export async function getTxVolumeByDay(
   const txVolObj = txs
     .filter((tx) => new BigNumber(tx.tx_volume).isGreaterThan(0))
     .reduce((acc, item) => {
-      const dateKey = getDateFromDateTime(new Date(item.date))
-      if (!acc[dateKey]) {
-        acc[dateKey] = {}
+      if (!acc[item.date]) {
+        acc[item.date] = {}
       }
-      acc[dateKey][item.denom] = getIntegerPortion(item.tx_volume)
+      acc[item.date][item.denom] = getIntegerPortion(item.tx_volume)
       return acc
     }, {} as TxVolumeByDateDenom)
 

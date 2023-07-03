@@ -58,7 +58,6 @@ const init = async () => {
   initializeSentry()
   await initORM()
   await initToken()
-  await collectBlock()
   // Initialize validator_info table when it is empty
   await getRepository(ValidatorInfoEntity)
     .count()
@@ -67,6 +66,7 @@ const init = async () => {
         return collectValidator()
       }
     })
+  await collectBlock()
   await createJobs()
   await startWatcher()
   await startPolling()

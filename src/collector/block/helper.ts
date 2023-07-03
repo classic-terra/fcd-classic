@@ -30,13 +30,10 @@ export function addDatetimeFilterToQuery(timestamp: number, qb: WhereExpressionB
   qb.andWhere(`timestamp < '${getQueryDateTime(to)}'`)
 }
 
-export async function getAllActivePrices(timestamp: number): Promise<{ [denom: string]: string }> {
-  // TODO: Need to fix the query because of exact time matching might fail
+export async function queryAllActivePrices(timestamp: number): Promise<{ [denom: string]: string }> {
   const prices = await getRepository(PriceEntity).find({
     datetime: new Date(timestamp)
   })
 
-  return prices.reduce((acc, price) => {
-    return { ...acc, [price.denom]: price['price'] }
-  }, {})
+  return prices.reduce((acc, price) => ({ ...acc, [price.denom]: price['price'] }), {})
 }

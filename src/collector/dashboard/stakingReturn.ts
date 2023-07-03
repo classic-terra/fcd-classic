@@ -3,7 +3,6 @@ import { subDays } from 'date-fns'
 
 import * as lcd from 'lib/lcd'
 import { times, div, plus, getIntegerPortion } from 'lib/math'
-import { getDateFromDateTime } from 'lib/time'
 
 import { GeneralInfoEntity } from 'orm'
 
@@ -47,13 +46,16 @@ async function getAvgBondedTokensByDate(
     stakingQb.andWhere('datetime >= :from', { from: subDays(to, daysBefore) })
   }
 
-  const bondedTokens = await stakingQb.getRawMany()
+  const bondedTokens: {
+    date: string
+    avg_staking_ratio: string
+    avg_bonded_tokens: string
+  }[] = await stakingQb.getRawMany()
 
-  const bondedTokensObj = bondedTokens.reduce((acc, item) => {
-    acc[item.date] = getIntegerPortion(item.avg_bonded_tokens ?? times(issuance, item.avg_staking_ratio))
+  return bondedTokens.reduce((acc, item) => {
+    acc[item.date] = getIntegerPortion(times(issuance, item.avg_staking_ratio))
     return acc
   }, {})
-  return bondedTokensObj
 }
 
 async function getRewardsInLunaByDate(
@@ -84,15 +86,24 @@ async function getRewardsInLunaByDate(
     const prev = acc[item.date] || {}
 
     acc[item.date] = {
-      tax: getIntegerPortion(plus(prev.tax, tax)),
-      gas: getIntegerPortion(plus(prev.gas, gas)),
-      oracle: getIntegerPortion(plus(prev.oracle, oracle)),
-      commission: getIntegerPortion(plus(prev.commission, commission)),
-      reward: getIntegerPortion(plus(prev.reward, reward))
+      tax: plus(prev.tax, tax),
+      gas: plus(prev.gas, gas),
+      oracle: plus(prev.oracle, oracle),
+      commission: plus(prev.commission, commission),
+      reward: plus(prev.reward, reward)
     }
 
     return acc
   }, {})
+
+  for (const info of Object.values(rewardObj)) {
+    info.tax = getIntegerPortion(info.tax)
+    info.gas = getIntegerPortion(info.gas)
+    info.oracle = getIntegerPortion(info.oracle)
+    info.commission = getIntegerPortion(info.commission)
+    info.reward = getIntegerPortion(info.reward)
+  }
+
   return rewardObj
 }
 
@@ -108,8 +119,7 @@ export async function getStakingReturnByDay(
     const avgStaking = avgStakingObj[date]
     const reward = rewardObj[date].reward
 
-    // TODO: Need to add a failsafe for not found staked
-    acc[getDateFromDateTime(new Date(date))] = {
+    acc[date] = {
       reward,
       avgStaking
     }
