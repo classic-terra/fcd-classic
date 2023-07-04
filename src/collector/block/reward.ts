@@ -2,16 +2,15 @@ import * as Bluebird from 'bluebird'
 import { getRepository, EntityManager } from 'typeorm'
 import { get, mergeWith } from 'lodash'
 
-import config from 'config'
 import { TxEntity, RewardEntity, BlockEntity } from 'orm'
 
 import * as lcd from 'lib/lcd'
 import { collectorLogger as logger } from 'lib/logger'
-import { plus, minus } from 'lib/math'
+import { plus } from 'lib/math'
 import { splitDenomAndAmount } from 'lib/common'
 import { getDateRangeOfLastMinute, getQueryDateTime, getStartOfPreviousMinuteTs } from 'lib/time'
 
-import { getUSDValue, queryAllActivePrices, addDatetimeFilterToQuery } from './helper'
+import { getUSDValue, addDatetimeFilterToQuery } from './helper'
 
 function extractGasFee(tx: TxEntity): DenomMap {
   return tx.data.tx.value.fee.amount.reduce((acc, item) => {
@@ -45,8 +44,6 @@ function extractSwapFee(tx: TxEntity): DenomMap {
           if (swapFeeAttribute) {
             const { amount, denom } = splitDenomAndAmount(swapFeeAttribute.value)
             acc[denom] = plus(acc[denom], amount)
-
-            logger.debug(`SWAPFEE! ${tx.hash} ${denom} ${acc[denom]}`)
           }
         }
       })
@@ -59,11 +56,8 @@ async function queryFees(timestamp: number): Promise<{
   tax: DenomMap
   swapfee: DenomMap
 }> {
-  const qb = getRepository(TxEntity).createQueryBuilder('tx').select(`tx.data`)
+  const qb = getRepository(TxEntity).createQueryBuilder('tx').select(['tx.hash', 'tx.data'])
   addDatetimeFilterToQuery(timestamp, qb)
-
-  // .leftJoinAndSelect("tx.block", "block")
-  // .where("tx.block_id is not null");
 
   const txs = await qb.getMany()
   const rewardMerger = (obj, src) => mergeWith(obj, src, (o, s) => plus(o, s))
@@ -101,16 +95,17 @@ export async function getRewards(timestamp: number): Promise<Rewards> {
     return result
   }
 
-  const lastBlock = await getRepository(BlockEntity).findOne({
-    chainId: config.CHAIN_ID,
-    height: blocks[blocks.length - 1].height + 1
-  })
+  // wtf?
+  // const lastBlock = await getRepository(BlockEntity).findOne({
+  //   chainId: config.CHAIN_ID,
+  //   height: blocks[blocks.length - 1].height + 1
+  // })
 
-  if (lastBlock) {
-    blocks.push(lastBlock)
-  }
+  // if (lastBlock) {
+  //   blocks.push(lastBlock)
+  // }
 
-  blocks.shift()
+  // blocks.shift()
 
   const rewardMerger = (obj, src) => mergeWith(obj, src, (o, s) => plus(o, s))
 
@@ -124,11 +119,15 @@ export async function getRewards(timestamp: number): Promise<Rewards> {
 export async function collectReward(mgr: EntityManager, timestamp: number, strHeight: string) {
   const { reward: rewardSum, commission } = await getRewards(timestamp)
   const datetime = new Date(getStartOfPreviousMinuteTs(timestamp))
-  const [issuances, rewards, activePrices] = await Promise.all([
+  const [issuances, fees, activePrices] = await Promise.all([
     lcd.getAllActiveIssuance(strHeight),
     queryFees(timestamp),
-    queryAllActivePrices(datetime.getTime())
+    lcd.getActiveOraclePrices(strHeight)
   ])
+
+  if (Object.keys(activePrices).length === 0) {
+    throw new Error(`no active prices`)
+  }
 
   await Bluebird.map(Object.keys(issuances), async (denom) => {
     // early exit for denoms without reward
@@ -139,16 +138,14 @@ export async function collectReward(mgr: EntityManager, timestamp: number, strHe
     const reward = new RewardEntity()
     reward.denom = denom
     reward.datetime = datetime
-    reward.tax = get(rewards, `tax.${denom}`, '0')
+    reward.tax = get(fees, `tax.${denom}`, '0')
     reward.taxUsd = getUSDValue(denom, reward.tax, activePrices)
-    reward.gas = get(rewards, `gas.${denom}`, '0')
+    reward.gas = get(fees, `gas.${denom}`, '0')
     reward.gasUsd = getUSDValue(denom, reward.gas, activePrices)
+    reward.oracle = get(fees, `swapfee.${denom}`, '0')
+    reward.oracleUsd = getUSDValue(denom, reward.oracle, activePrices)
     reward.sum = rewardSum[denom]
     reward.commission = commission[denom]
-
-    const oracle = minus(minus(reward.sum, reward.tax), reward.gas)
-    reward.oracle = Number(oracle) < 0 ? '0' : oracle
-    reward.oracleUsd = getUSDValue(denom, reward.oracle, activePrices)
 
     const existing = await mgr.findOne(RewardEntity, { denom, datetime })
 

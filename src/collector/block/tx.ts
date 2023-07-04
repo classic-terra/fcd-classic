@@ -9,45 +9,55 @@ import { collectorLogger as logger } from 'lib/logger'
 import { times, minus, plus, min, getIntegerPortion } from 'lib/math'
 import config from 'config'
 import { generateAccountTxs } from './accountTx'
-import { BOND_DENOM, BURN_TAX_UPGRADE_HEIGHT } from 'lib/constant'
+import { BOND_DENOM, BURN_TAX_UPGRADE_HEIGHT, BLOCKS_PER_WEEK } from 'lib/constant'
 
+// Singleton class for tracking tax related parameters
 class TaxPolicy {
-  exemptionList: string[]
-  public rate: string
-  public caps: {
+  static exemptionList: string[]
+  public static rate: string
+  public static caps: {
     [denom: string]: string
   }
-  public policyCap: string
+  public static policyCap: string
+  private static cached = false
 
-  public async fetch(height: string) {
-    const [rate, lcdTaxCaps, treasuryParams, exemptionList] = await Promise.all([
-      lcd.getTaxRate(height),
-      lcd.getTaxCaps(height),
-      lcd.getTreasuryParams(height),
-      lcd.getTaxExemptionList(height)
+  public static async fetch(strHeight: string) {
+    // These can be changed by gov
+    const [treasuryParams, exemptionList] = await Promise.all([
+      lcd.getTreasuryParams(strHeight),
+      lcd.getTaxExemptionList(strHeight)
     ])
 
-    this.rate = rate
-    this.caps = mapValues(keyBy(lcdTaxCaps, 'denom'), 'tax_cap')
-    this.policyCap = treasuryParams.tax_policy.cap.amount
-    this.exemptionList = exemptionList
+    TaxPolicy.policyCap = treasuryParams.tax_policy.cap.amount
+    TaxPolicy.exemptionList = exemptionList
+
+    // Tax Rate and Caps update once every week
+    if (TaxPolicy.cached && +strHeight % BLOCKS_PER_WEEK !== 0) {
+      return
+    }
+
+    const [rate, lcdTaxCaps] = await Promise.all([lcd.getTaxRate(strHeight), lcd.getTaxCaps(strHeight)])
+
+    TaxPolicy.rate = rate
+    TaxPolicy.caps = mapValues(keyBy(lcdTaxCaps, 'denom'), 'tax_cap')
+    TaxPolicy.cached = true
   }
 
-  public isExemption(from: string, to: string): boolean {
+  public static isExemptionAddress(from: string, to: string): boolean {
     if (!from || !to) {
       throw new Error('address nil')
     }
 
-    return this.exemptionList.indexOf(from) !== -1 && this.exemptionList.indexOf(to) !== -1
+    return TaxPolicy.exemptionList.indexOf(from) !== -1 && TaxPolicy.exemptionList.indexOf(to) !== -1
   }
 }
 
-function getTaxCoins(lcdTx: Transaction.LcdTransaction, msg: Transaction.AminoMesssage, taxPolicy: TaxPolicy): Coin[] {
+function getTaxCoins(lcdTx: Transaction.LcdTransaction, msg: Transaction.AminoMesssage): Coin[] {
   let coins: Coin[] = []
 
   switch (msg.type) {
     case 'bank/MsgSend': {
-      if (taxPolicy.isExemption(msg.value.from_address, msg.value.to_address)) {
+      if (TaxPolicy.isExemptionAddress(msg.value.from_address, msg.value.to_address)) {
         break
       }
       coins = msg.value.amount
@@ -56,7 +66,7 @@ function getTaxCoins(lcdTx: Transaction.LcdTransaction, msg: Transaction.AminoMe
     case 'bank/MsgMultiSend': {
       const taxInputs = msg.value.inputs.filter((input, idx) => {
         const output = msg.value.outputs[idx]
-        return !taxPolicy.isExemption(input.address, output.address)
+        return !TaxPolicy.isExemptionAddress(input.address, output.address)
       })
       coins = flattenDeep(taxInputs.map((input) => input.coins))
       break
@@ -91,12 +101,8 @@ function getTaxCoins(lcdTx: Transaction.LcdTransaction, msg: Transaction.AminoMe
   return coins
 }
 
-export function getTax(
-  lcdTx: Transaction.LcdTransaction,
-  msg: Transaction.AminoMesssage,
-  taxPolicy: TaxPolicy
-): Coin[] {
-  const taxCoins = getTaxCoins(lcdTx, msg, taxPolicy)
+export function getTax(lcdTx: Transaction.LcdTransaction, msg: Transaction.AminoMesssage): Coin[] {
+  const taxCoins = getTaxCoins(lcdTx, msg)
   const groupByDenom = groupBy(taxCoins, 'denom')
   const coins = Object.keys(groupByDenom).map((denom) =>
     groupByDenom[denom].reduce((sum, coin) => ({ denom: sum.denom, amount: plus(sum.amount, coin.amount) }), {
@@ -112,10 +118,10 @@ export function getTax(
         return
       }
 
-      const cap = taxPolicy.caps[coin.denom] || taxPolicy.policyCap
+      const cap = TaxPolicy.caps[coin.denom] || TaxPolicy.policyCap
       const tax = {
         denom: coin.denom,
-        amount: min(getIntegerPortion(times(coin.amount, taxPolicy.rate)), cap)
+        amount: min(getIntegerPortion(times(coin.amount, TaxPolicy.rate)), cap)
       }
       // if (+tax.amount > 1000000000000) console.log(`Tax: ${msg.type}, txhash: ${lcdTx.txhash}`, tax)
       return tax
@@ -123,7 +129,7 @@ export function getTax(
   )
 }
 
-function assignGasAndTax(lcdTx: Transaction.LcdTransaction, taxPolicy: TaxPolicy) {
+function assignGasAndTax(lcdTx: Transaction.LcdTransaction) {
   // early exit
   if (lcdTx.code || !lcdTx.logs?.length) {
     return
@@ -141,7 +147,7 @@ function assignGasAndTax(lcdTx: Transaction.LcdTransaction, taxPolicy: TaxPolicy
   // gas = fee - tax
   const gasObj = msgs.reduce(
     (acc, msg) => {
-      const msgTaxes = getTax(lcdTx, msg, taxPolicy)
+      const msgTaxes = getTax(lcdTx, msg)
       const taxPerMsg: string[] = []
       msgTaxes.forEach(({ denom, amount }) => {
         if (acc[denom]) {
@@ -207,8 +213,7 @@ function sanitizeTx(tx: Transaction.LcdTransaction): Transaction.LcdTransaction 
 }
 
 async function generateTxEntities(txHashes: string[], block: BlockEntity): Promise<TxEntity[]> {
-  const taxPolicy = new TaxPolicy()
-  await taxPolicy.fetch(block.height.toString())
+  await TaxPolicy.fetch(block.height.toString())
 
   // txs with the same tx hash may appear more than once in the same block duration
   const txHashesUnique = new Set(txHashes)
@@ -218,7 +223,7 @@ async function generateTxEntities(txHashes: string[], block: BlockEntity): Promi
       [...txHashesUnique],
       async (txhash) => {
         const lcdTx = await lcd.getTx(txhash)
-        assignGasAndTax(lcdTx, taxPolicy)
+        assignGasAndTax(lcdTx)
 
         const txEntity = new TxEntity()
         txEntity.chainId = block.chainId

@@ -1,7 +1,4 @@
-import { WhereExpressionBuilder, getRepository } from 'typeorm'
-
-import { PriceEntity } from 'orm'
-
+import { WhereExpressionBuilder } from 'typeorm'
 import { times, div } from 'lib/math'
 import { getDateRangeOfLastMinute, getQueryDateTime } from 'lib/time'
 import { BOND_DENOM } from 'lib/constant'
@@ -28,12 +25,4 @@ export function addDatetimeFilterToQuery(timestamp: number, qb: WhereExpressionB
 
   qb.andWhere(`timestamp >= '${getQueryDateTime(from)}'`)
   qb.andWhere(`timestamp < '${getQueryDateTime(to)}'`)
-}
-
-export async function queryAllActivePrices(timestamp: number): Promise<{ [denom: string]: string }> {
-  const prices = await getRepository(PriceEntity).find({
-    datetime: new Date(timestamp)
-  })
-
-  return prices.reduce((acc, price) => ({ ...acc, [price.denom]: price['price'] }), {})
 }

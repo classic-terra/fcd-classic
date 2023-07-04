@@ -39,8 +39,11 @@ async function get(path: string, params?: Record<string, unknown>): Promise<any>
 }
 
 // NOTE: height parameter depends on node's configuration
-// The default is: PruneDefault defines a pruning strategy where the last 100 heights are kept
-// in addition to every 100th and where to-be pruned heights are pruned at every 10th height.
+// https://github.com/classic-terra/cosmos-sdk/blob/39362c4539b0a911bfa467fa782d01112d6379a4/store/types/pruning.go#L14-L20
+// PruneDefault defines a pruning strategy where the last 362880 heights are
+// kept in addition to every 100th and where to-be pruned heights are pruned
+// at every 10th height. The last 362880 heights are kept assuming the typical
+// block time is 5s and typical unbonding period is 21 days.
 function calculateHeightParam(strHeight?: string): string | undefined {
   const numHeight = Number(strHeight)
 
@@ -51,7 +54,7 @@ function calculateHeightParam(strHeight?: string): string | undefined {
   if (
     latestHeight &&
     (latestHeight < config.INITIAL_HEIGHT + config.PRUNING_KEEP_EVERY || // Pruning not happened yet
-      latestHeight - numHeight < config.PRUNING_KEEP_EVERY) // Last 100 heights are guarenteed
+      latestHeight - numHeight < config.PRUNING_KEEP_RECENT) // Last PRUNING_KEEP_RECENT heights are guarenteed
   ) {
     return strHeight
   }

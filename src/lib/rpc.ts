@@ -52,22 +52,32 @@ export async function getRewards(height: string): Promise<Reward[]> {
 
   const events = [...(blockResult.begin_block_events || []), ...(blockResult.end_block_events || [])]
 
+  events.forEach((event) => {
+    event.attributes.forEach((attr) => {
+      attr.key = base64Decode(attr.key)
+      attr.value = base64Decode(attr.value)
+    })
+  })
+
   const decodedRewardsAndCommission: Reward[] = compact(
     (events || [])
       .map((event) => {
-        if (event.type !== 'proposer_reward' && event.type !== 'rewards' && event.type !== 'commission') {
+        if (event.type !== 'rewards' && event.type !== 'commission') {
           return
         }
 
-        const res = {}
+        const res = {
+          type: event.type
+        }
 
         event.attributes.forEach((attr) => {
-          const key = base64Decode(attr.key)
-          const value = base64Decode(attr.value)
-          res[key] = value
+          res[attr.key] = attr.value
         })
 
-        res['type'] = event.type
+        if (res['amount'] === null) {
+          return
+        }
+
         return res as Reward
       })
       .flat()

@@ -7,7 +7,7 @@ import { bech32 } from 'bech32'
 import config from 'config'
 import { BlockEntity, BlockRewardEntity } from 'orm'
 import { splitDenomAndAmount } from 'lib/common'
-import { plus } from 'lib/math'
+import { getIntegerPortion, plus } from 'lib/math'
 import { collectorLogger as logger } from 'lib/logger'
 import * as lcd from 'lib/lcd'
 import * as rpc from 'lib/rpc'
@@ -113,28 +113,27 @@ export async function getBlockReward(height: string): Promise<DeepPartial<BlockR
   const rewardPerVal = {}
   const commissionPerVal = {}
 
-  decodedRewardsAndCommission &&
-    decodedRewardsAndCommission.forEach((item) => {
-      if (!item.amount) {
-        return
-      }
+  decodedRewardsAndCommission.forEach((item) => {
+    if (!item.amount) {
+      return
+    }
 
-      if (item.type === 'rewards') {
-        const rewards = item.amount
-          .split(',')
-          .map((amount) => ({ ...splitDenomAndAmount(amount), validator: item.validator }))
+    if (item.type === 'rewards') {
+      const rewards = item.amount
+        .split(',')
+        .map((amount) => ({ ...splitDenomAndAmount(amount), validator: item.validator }))
 
-        rewards.reduce(totalRewardReducer, totalReward)
-        rewards.reduce(validatorRewardReducer, rewardPerVal)
-      } else if (item.type === 'commission') {
-        const commissions = item.amount
-          .split(',')
-          .map((amount) => ({ ...splitDenomAndAmount(amount), validator: item.validator }))
+      rewards.reduce(totalRewardReducer, totalReward)
+      rewards.reduce(validatorRewardReducer, rewardPerVal)
+    } else if (item.type === 'commission') {
+      const commissions = item.amount
+        .split(',')
+        .map((amount) => ({ ...splitDenomAndAmount(amount), validator: item.validator }))
 
-        commissions.reduce(totalRewardReducer, totalCommission)
-        commissions.reduce(validatorRewardReducer, commissionPerVal)
-      }
-    })
+      commissions.reduce(totalRewardReducer, totalCommission)
+      commissions.reduce(validatorRewardReducer, commissionPerVal)
+    }
+  })
 
   const blockReward: DeepPartial<BlockRewardEntity> = {
     reward: totalReward,

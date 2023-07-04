@@ -9,7 +9,7 @@ import { plus } from 'lib/math'
 import { getStartOfPreviousMinuteTs } from 'lib/time'
 import { isSuccessfulTx } from 'lib/tx'
 
-import { getUSDValue, addDatetimeFilterToQuery, queryAllActivePrices } from './helper'
+import { getUSDValue, addDatetimeFilterToQuery } from './helper'
 
 function getVolumeCoins(lcdTx: Transaction.LcdTransaction, msg: Transaction.AminoMesssage): Coin[] {
   let coins: Coin[] = []
@@ -71,8 +71,6 @@ async function queryTxVolume(timestamp: number): Promise<DenomMap> {
   addDatetimeFilterToQuery(timestamp, qb)
   const txs = await qb.getMany()
 
-  // txs.forEach((tx) => tx.data.tx.value.msg.forEach((msg) => console.log(msg)))
-
   return txs.reduce((volume, tx) => {
     const lcdTx = tx.data as Transaction.LcdTransaction
 
@@ -102,7 +100,7 @@ export async function collectNetwork(mgr: EntityManager, timestamp: number, strH
   const ts = getStartOfPreviousMinuteTs(timestamp)
   const [activeIssuances, activePrices, volumeObj] = await Promise.all([
     lcd.getAllActiveIssuance(strHeight),
-    queryAllActivePrices(ts),
+    lcd.getActiveOraclePrices(strHeight),
     queryTxVolume(timestamp)
   ])
 

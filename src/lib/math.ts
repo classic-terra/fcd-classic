@@ -32,4 +32,4 @@ export const min = (...n: BigNumber.Value[]): string => {
   return BigNumber.min(...normalized).toString()
 }
 
-export const getIntegerPortion = (input: string): string => new BigNumber(input).toFixed(0)
+export const getIntegerPortion = (input: string): string => new BigNumber(input).toFixed(0, BigNumber.ROUND_DOWN)
