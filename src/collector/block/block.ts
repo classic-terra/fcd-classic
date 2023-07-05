@@ -7,7 +7,7 @@ import { bech32 } from 'bech32'
 import config from 'config'
 import { BlockEntity, BlockRewardEntity } from 'orm'
 import { splitDenomAndAmount } from 'lib/common'
-import { getIntegerPortion, plus } from 'lib/math'
+import { plus } from 'lib/math'
 import { collectorLogger as logger } from 'lib/logger'
 import * as lcd from 'lib/lcd'
 import * as rpc from 'lib/rpc'
@@ -106,7 +106,7 @@ const validatorRewardReducer = (acc: DenomMapByValidator, item: Coin & { validat
 }
 
 export async function getBlockReward(height: string): Promise<DeepPartial<BlockRewardEntity>> {
-  const decodedRewardsAndCommission = await rpc.getRewards(height)
+  const decodedRewardsAndCommission = await rpc.fetchRewards(height)
 
   const totalReward = {}
   const totalCommission = {}

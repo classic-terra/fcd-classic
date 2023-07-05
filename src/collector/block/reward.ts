@@ -95,18 +95,6 @@ export async function getRewards(timestamp: number): Promise<Rewards> {
     return result
   }
 
-  // wtf?
-  // const lastBlock = await getRepository(BlockEntity).findOne({
-  //   chainId: config.CHAIN_ID,
-  //   height: blocks[blocks.length - 1].height + 1
-  // })
-
-  // if (lastBlock) {
-  //   blocks.push(lastBlock)
-  // }
-
-  // blocks.shift()
-
   const rewardMerger = (obj, src) => mergeWith(obj, src, (o, s) => plus(o, s))
 
   return blocks.reduce((acc, block) => {

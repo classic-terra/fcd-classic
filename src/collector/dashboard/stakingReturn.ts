@@ -1,7 +1,5 @@
 import { EntityManager } from 'typeorm'
 import { subDays } from 'date-fns'
-
-import * as lcd from 'lib/lcd'
 import { times, div, plus, getIntegerPortion } from 'lib/math'
 
 import { GeneralInfoEntity } from 'orm'
@@ -31,13 +29,13 @@ async function getAvgBondedTokensByDate(
 ): Promise<{
   [date: string]: string
 }> {
-  const issuance = (await lcd.getTotalSupply()).find((e) => e.denom === BOND_DENOM)?.amount || '0'
   const stakingQb = mgr
     .getRepository(GeneralInfoEntity)
     .createQueryBuilder()
     .select(convertDbTimestampToDate('datetime'), 'date')
     .addSelect('AVG(staking_ratio)', 'avg_staking_ratio')
     .addSelect('AVG(bonded_tokens)', 'avg_bonded_tokens')
+    .addSelect(`AVG((issuances ->> 'uluna')::numeric)`, 'issuance')
     .groupBy('date')
     .orderBy('date', 'DESC')
     .where('datetime < :to', { to })
@@ -50,10 +48,11 @@ async function getAvgBondedTokensByDate(
     date: string
     avg_staking_ratio: string
     avg_bonded_tokens: string
+    issuance: string
   }[] = await stakingQb.getRawMany()
 
   return bondedTokens.reduce((acc, item) => {
-    acc[item.date] = getIntegerPortion(times(issuance, item.avg_staking_ratio))
+    acc[item.date] = getIntegerPortion(times(item.issuance, item.avg_staking_ratio))
     return acc
   }, {})
 }

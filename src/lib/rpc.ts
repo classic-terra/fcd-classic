@@ -3,7 +3,7 @@ import config from 'config'
 import { request } from 'lib/request'
 import { apiLogger as logger } from './logger'
 
-async function getRequest(path: string, params?: Record<string, string>): Promise<any> {
+async function fetch(path: string, params?: Record<string, string>): Promise<any> {
   const url = `${config.RPC_URI}${path}`
   const response = await request(url, params)
     .then((res) => {
@@ -43,8 +43,8 @@ interface Reward {
   type: 'proposer_reward' | 'rewards' | 'commission'
 }
 
-export async function getRewards(height: string): Promise<Reward[]> {
-  const blockResult = await getRequest(`/block_results`, { height })
+export async function fetchRewards(height: string): Promise<Reward[]> {
+  const blockResult = await fetch(`/block_results`, { height })
 
   if (!blockResult) {
     throw new Error('failed get block results from rpc')
@@ -86,10 +86,10 @@ export async function getRewards(height: string): Promise<Reward[]> {
   return decodedRewardsAndCommission
 }
 
-export async function getUnconfirmedTxs(
+export async function fetchUnconfirmedTxs(
   params: Record<string, string> = { limit: '1000000000000' }
 ): Promise<string[]> {
-  const unconfirmedTxs = await getRequest(`/unconfirmed_txs`, params)
+  const unconfirmedTxs = await fetch(`/unconfirmed_txs`, params)
 
   if (!Array.isArray(unconfirmedTxs.txs)) {
     throw new Error('unconfirmed txs not found')
