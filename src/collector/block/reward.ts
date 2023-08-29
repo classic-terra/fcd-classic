@@ -113,8 +113,10 @@ export async function collectReward(mgr: EntityManager, timestamp: number, strHe
     lcd.getActiveOraclePrices(strHeight)
   ])
 
-  if (Object.keys(activePrices).length === 0) {
-    throw new Error(`no active prices`)
+  const isOracleActive = Object.keys(activePrices).length > 0
+
+  if (!isOracleActive) {
+    logger.warn(`no oracle prices at height ${strHeight} ${JSON.stringify(activePrices)}`)
   }
 
   await Bluebird.map(Object.keys(issuances), async (denom) => {
