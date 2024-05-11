@@ -51,7 +51,9 @@ export async function getCirculatingSupply(input: string): Promise<string> {
 
     if (stakingPool) {
       circulatingSupply = minus(circulatingSupply, stakingPool.bonded_tokens || '0')
-      circulatingSupply = minus(circulatingSupply, stakingPool.not_bonded_tokens || '0')
+      // not_bonded_tokens is token that is currently unbonding or staked with inactive validators
+      // it has not been removed from the total supply in the past, so we should keep it that way
+      // circulatingSupply = minus(circulatingSupply, stakingPool.not_bonded_tokens || '0')
     }
 
     // Remove Luna in bank wallets
