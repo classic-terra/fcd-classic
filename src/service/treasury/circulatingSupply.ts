@@ -19,7 +19,11 @@ export async function getCirculatingSupply(input: string): Promise<string> {
   }
 
   const denom = isActiveCurrency(input) ? currencyToDenom(input.toLowerCase()) : input
-  const [totalSupply, communityPool] = await Promise.all([getTotalSupply(denom), lcd.getCommunityPool()])
+  const [totalSupply, communityPool, stakingPool] = await Promise.all([
+    getTotalSupply(denom),
+    lcd.getCommunityPool(),
+    lcd.getStakingPool()
+  ])
   const unvested = await getRepository(UnvestedEntity).find({
     where: {
       denom
@@ -43,6 +47,11 @@ export async function getCirculatingSupply(input: string): Promise<string> {
     // Remove Luna in community pool
     if (communityPool) {
       circulatingSupply = minus(circulatingSupply, communityPool.find((c) => c.denom === denom)?.amount || '0')
+    }
+
+    if (stakingPool) {
+      circulatingSupply = minus(circulatingSupply, stakingPool.bonded_tokens || '0')
+      circulatingSupply = minus(circulatingSupply, stakingPool.not_bonded_tokens || '0')
     }
 
     // Remove Luna in bank wallets
