@@ -42,13 +42,13 @@ export async function getCirculatingSupply(input: string): Promise<string> {
     circulatingSupply = minus(circulatingSupply, unvested[0].amount)
   }
 
+  // Remove supply in community pool
+  if (communityPool) {
+    circulatingSupply = minus(circulatingSupply, communityPool.find((c) => c.denom === denom)?.amount || '0')
+  }
+
   // Special conditions for Luna
   if (denom === BOND_DENOM) {
-    // Remove Luna in community pool
-    if (communityPool) {
-      circulatingSupply = minus(circulatingSupply, communityPool.find((c) => c.denom === denom)?.amount || '0')
-    }
-
     if (stakingPool) {
       circulatingSupply = minus(circulatingSupply, stakingPool.bonded_tokens || '0')
       // not_bonded_tokens is token that is currently unbonding or staked with inactive validators
