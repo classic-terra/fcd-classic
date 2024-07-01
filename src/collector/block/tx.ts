@@ -204,6 +204,8 @@ function sanitizeTx(tx: Transaction.LcdTransaction): Transaction.LcdTransaction 
   function encodeIfNeeded(value: string) {
     if (hasProblematicUnicode(value)) {
       return Buffer.from(value, 'utf8').toString('base64')
+    } else {
+      return value
     }
   }
 
