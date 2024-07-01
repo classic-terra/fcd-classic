@@ -210,16 +210,21 @@ function sanitizeTx(tx: Transaction.LcdTransaction): Transaction.LcdTransaction 
   }
 
   const iterateTx = (obj) => {
+    const encodedObj = {}
     Object.keys(obj).forEach((key) => {
+      const encodedKey = encodeIfNeeded(key)
       if (typeof obj[key] === 'object' && obj[key] !== null) {
-        iterateTx(obj[key])
+        encodedObj[encodedKey] = iterateTx(obj[key])
       } else if (typeof obj[key] === 'string') {
-        obj[key] = encodeIfNeeded(obj[key])
+        encodedObj[encodedKey] = encodeIfNeeded(obj[key])
+      } else {
+        encodedObj[encodedKey] = obj[key]
       }
     })
+    return encodedObj
   }
-  iterateTx(tx)
-  return tx
+
+  return iterateTx(tx) as Transaction.LcdTransaction
 }
 
 async function generateTxEntities(txHashes: string[], block: BlockEntity): Promise<TxEntity[]> {
