@@ -210,18 +210,26 @@ function sanitizeTx(tx: Transaction.LcdTransaction): Transaction.LcdTransaction 
   }
 
   const iterateTx = (obj) => {
-    const encodedObj = {}
-    Object.keys(obj).forEach((key) => {
-      const encodedKey = encodeIfNeeded(key)
-      if (typeof obj[key] === 'object' && obj[key] !== null) {
-        encodedObj[encodedKey] = iterateTx(obj[key])
-      } else if (typeof obj[key] === 'string') {
-        encodedObj[encodedKey] = encodeIfNeeded(obj[key])
-      } else {
-        encodedObj[encodedKey] = obj[key]
-      }
-    })
-    return encodedObj
+    if (Array.isArray(obj)) {
+      return obj.map((item) => iterateTx(item))
+    } else if (typeof obj === 'object' && obj !== null) {
+      const encodedObj = {}
+      Object.keys(obj).forEach((key) => {
+        const encodedKey = encodeIfNeeded(key)
+        if (typeof obj[key] === 'object' && obj[key] !== null) {
+          encodedObj[encodedKey] = iterateTx(obj[key])
+        } else if (typeof obj[key] === 'string') {
+          encodedObj[encodedKey] = encodeIfNeeded(obj[key])
+        } else {
+          encodedObj[encodedKey] = obj[key]
+        }
+      })
+      return encodedObj
+    } else if (typeof obj === 'string') {
+      return encodeIfNeeded(obj)
+    } else {
+      return obj
+    }
   }
 
   return iterateTx(tx) as Transaction.LcdTransaction
