@@ -193,8 +193,12 @@ function assignGasAndTax(lcdTx: Transaction.LcdTransaction) {
 function sanitizeTx(tx: Transaction.LcdTransaction): Transaction.LcdTransaction {
   function hasProblematicUnicode(s: string) {
     // Check for problematic Unicode characters
-    // eslint-disable-next-line no-control-regex
-    return /[\u0000-\u001f\u007f-\u009f\u00ad\u200b\u2028\u2029\u2060-\u206f\ufffd]/.test(s)
+    return (
+      // eslint-disable-next-line no-control-regex
+      /[^\u0000-\u007f]/.test(s) ||
+      // eslint-disable-next-line no-control-regex
+      /[\u0000-\u001f\u007f-\u009f\u00ad\u200b\u2028\u2029\u2060-\u206f\ufffd]/.test(s)
+    )
   }
 
   function encodeIfNeeded(value: string) {
