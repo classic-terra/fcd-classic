@@ -40,7 +40,7 @@ const config = {
   INITIAL_HEIGHT,
   SERVER_PORT: SERVER_PORT ? +SERVER_PORT : 3060,
   LCD_URI: LCD_URI || 'https://terra-classic-lcd.publicnode.com',
-  FCD_URI: FCD_URI || 'https://fcd.terrarebels.net',
+  FCD_URI: FCD_URI || 'https://terra-classic-fcd.publicnode.com',
   RPC_URI: RPC_URI || 'http://localhost:26657',
   BYPASS_URI: BYPASS_URI || 'https://terra-classic-lcd.publicnode.com',
   STATION_STATUS_JSON_URL: STATION_STATUS_JSON || 'https://terra.money/station/version-web.json',
