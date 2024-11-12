@@ -42,7 +42,7 @@ const config = {
   LCD_URI: LCD_URI || 'https://terra-classic-lcd.publicnode.com',
   FCD_URI: FCD_URI || 'https://terra-classic-fcd.publicnode.com',
   RPC_URI: RPC_URI || 'http://localhost:26657',
-  BYPASS_URI: BYPASS_URI || 'https://terra-classic-lcd.publicnode.com',
+  BYPASS_URI: BYPASS_URI || 'https://lcd.terrarebels.net',
   STATION_STATUS_JSON_URL: STATION_STATUS_JSON || 'https://terra.money/station/version-web.json',
   BANK_WALLETS: BANK_WALLETS ? (JSON.parse(BANK_WALLETS) as string[]) : [],
   TOKEN_NETWORK: TOKEN_NETWORK,

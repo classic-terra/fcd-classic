@@ -58,54 +58,6 @@ export default class TreasuryController extends KoaController {
   }
 
   /**
-   * @api {get} /totalsupply/coin/:denom Get total supply of coins with their standard unit (e.g. LUNC instead of uluna)
-   * @apiName getTotalSupplyCoin
-   * @apiGroup Treasury
-   *
-   * @apiParam {string} denom Coin denomination
-   *
-   * @apiSuccess {number} amount Total supply of coin in standard unit.
-   */
-  @Get('/totalsupply/coin/:denom')
-  @Validate({
-    params: {
-      denom: Joi.string()
-        .required()
-        .valid(config.ACTIVE_DENOMS, config.ACTIVE_CURRENCY, TOKEN_SYMBOLS)
-        .description('Denom name')
-    },
-    failure: ErrorCodes.INVALID_REQUEST_ERROR
-  })
-  async getTotalSupplyCoin(ctx) {
-    const supply = await getTotalSupply(ctx.params.denom)
-    success(ctx, Number(supply) / 10 ** 6)
-  }
-
-  /**
-   * @api {get} /circulatingsupply/coin/:denom Get circulating supply of coins with their standard unit (e.g. LUNC instead of uluna)
-   * @apiName getCirculatingSupplyCoin
-   * @apiGroup Treasury
-   *
-   * @apiParam {string} denom Coin denomination
-   *
-   * @apiSuccess {number} amount Circulating supply of coin in standard unit.
-   */
-  @Get('/circulatingsupply/coin/:denom')
-  @Validate({
-    params: {
-      denom: Joi.string()
-        .required()
-        .valid(config.ACTIVE_DENOMS, config.ACTIVE_CURRENCY, TOKEN_SYMBOLS)
-        .description('Denom name')
-    },
-    failure: ErrorCodes.INVALID_REQUEST_ERROR
-  })
-  async getCirculatingSupplyCoin(ctx) {
-    const supply = await getCirculatingSupply(ctx.params.denom)
-    success(ctx, Number(supply) / 10 ** 6)
-  }
-
-  /**
    * @api {get} /totalsupply/:denom Get total supply of coins
    * @apiName getTotalSupply
    * @apiGroup Treasury
