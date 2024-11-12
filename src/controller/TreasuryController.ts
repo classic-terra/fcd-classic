@@ -58,52 +58,6 @@ export default class TreasuryController extends KoaController {
   }
 
   /**
-   * @api {get} /totalsupply/:denom Get total supply of coins
-   * @apiName getTotalSupply
-   * @apiGroup Treasury
-   *
-   * @apiParam {string} denom Coin denomination
-   *
-   * @apiSuccess {string} - total supply of denom
-   */
-  @Get('/totalsupply/:denom')
-  @Validate({
-    params: {
-      denom: Joi.string()
-        .required()
-        .valid(config.ACTIVE_DENOMS, config.ACTIVE_CURRENCY, TOKEN_SYMBOLS)
-        .description('Denom name')
-    },
-    failure: ErrorCodes.INVALID_REQUEST_ERROR
-  })
-  async getTotalSupply(ctx) {
-    success(ctx, await getTotalSupply(ctx.params.denom))
-  }
-
-  /**
-   * @api {get} /circulatingsupply/:denom Get circulating supply of coins
-   * @apiName getCirculatingSupply
-   * @apiGroup Treasury
-   *
-   * @apiParam {string} denom Coin denomination
-   *
-   * @apiSuccess {number} amount Circulating supply of coin.
-   */
-  @Get('/circulatingsupply/:denom')
-  @Validate({
-    params: {
-      denom: Joi.string()
-        .required()
-        .valid(config.ACTIVE_DENOMS, config.ACTIVE_CURRENCY, TOKEN_SYMBOLS)
-        .description('Denom name')
-    },
-    failure: ErrorCodes.INVALID_REQUEST_ERROR
-  })
-  async getCirculatingSupply(ctx) {
-    success(ctx, await getCirculatingSupply(ctx.params.denom))
-  }
-
-  /**
    * @api {get} /totalsupply/coin/:denom Get total supply of coins with their standard unit (e.g. LUNC instead of uluna)
    * @apiName getTotalSupplyCoin
    * @apiGroup Treasury
@@ -149,5 +103,51 @@ export default class TreasuryController extends KoaController {
   async getCirculatingSupplyCoin(ctx) {
     const supply = await getCirculatingSupply(ctx.params.denom)
     success(ctx, Number(supply) / 10 ** 6)
+  }
+
+  /**
+   * @api {get} /totalsupply/:denom Get total supply of coins
+   * @apiName getTotalSupply
+   * @apiGroup Treasury
+   *
+   * @apiParam {string} denom Coin denomination
+   *
+   * @apiSuccess {string} - total supply of denom
+   */
+  @Get('/totalsupply/:denom')
+  @Validate({
+    params: {
+      denom: Joi.string()
+        .required()
+        .valid(config.ACTIVE_DENOMS, config.ACTIVE_CURRENCY, TOKEN_SYMBOLS)
+        .description('Denom name')
+    },
+    failure: ErrorCodes.INVALID_REQUEST_ERROR
+  })
+  async getTotalSupply(ctx) {
+    success(ctx, await getTotalSupply(ctx.params.denom))
+  }
+
+  /**
+   * @api {get} /circulatingsupply/:denom Get circulating supply of coins
+   * @apiName getCirculatingSupply
+   * @apiGroup Treasury
+   *
+   * @apiParam {string} denom Coin denomination
+   *
+   * @apiSuccess {number} amount Circulating supply of coin.
+   */
+  @Get('/circulatingsupply/:denom')
+  @Validate({
+    params: {
+      denom: Joi.string()
+        .required()
+        .valid(config.ACTIVE_DENOMS, config.ACTIVE_CURRENCY, TOKEN_SYMBOLS)
+        .description('Denom name')
+    },
+    failure: ErrorCodes.INVALID_REQUEST_ERROR
+  })
+  async getCirculatingSupply(ctx) {
+    success(ctx, await getCirculatingSupply(ctx.params.denom))
   }
 }
