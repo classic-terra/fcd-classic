@@ -191,25 +191,48 @@ function assignGasAndTax(lcdTx: Transaction.LcdTransaction) {
 //Tx objects are hopefully not that deep, but just in case they are https://replit.com/@mkotsollaris/javascript-iterate-for-loop?v=1#index.js or something along those lines.
 //Going with simple recursion due time constaints.
 function sanitizeTx(tx: Transaction.LcdTransaction): Transaction.LcdTransaction {
-  function hasUnicode(s) {
-    // eslint-disable-next-line no-control-regex
-    return /[^\u0000-\u007f]/.test(s)
+  function hasProblematicUnicode(s: string) {
+    // Check for problematic Unicode characters
+    return (
+      // eslint-disable-next-line no-control-regex
+      /[^\u0000-\u007f]/.test(s) ||
+      // eslint-disable-next-line no-control-regex
+      /[\u0000-\u001f\u007f-\u009f\u00ad\u200b\u2028\u2029\u2060-\u206f\ufffd]/.test(s)
+    )
+  }
+
+  function encodeIfNeeded(value: string) {
+    if (hasProblematicUnicode(value)) {
+      return Buffer.from(value, 'utf8').toString('base64')
+    } else {
+      return value
+    }
   }
 
   const iterateTx = (obj) => {
-    Object.keys(obj).forEach((key) => {
-      if (typeof obj[key] === 'object' && obj[key] !== null) {
-        iterateTx(obj[key])
-      } else {
-        if (hasUnicode(obj[key])) {
-          const b = Buffer.from(obj[key])
-          obj[key] = b.toString('base64')
+    if (Array.isArray(obj)) {
+      return obj.map((item) => iterateTx(item))
+    } else if (typeof obj === 'object' && obj !== null) {
+      const encodedObj = {}
+      Object.keys(obj).forEach((key) => {
+        const encodedKey = encodeIfNeeded(key)
+        if (typeof obj[key] === 'object' && obj[key] !== null) {
+          encodedObj[encodedKey] = iterateTx(obj[key])
+        } else if (typeof obj[key] === 'string') {
+          encodedObj[encodedKey] = encodeIfNeeded(obj[key])
+        } else {
+          encodedObj[encodedKey] = obj[key]
         }
-      }
-    })
+      })
+      return encodedObj
+    } else if (typeof obj === 'string') {
+      return encodeIfNeeded(obj)
+    } else {
+      return obj
+    }
   }
-  iterateTx(tx)
-  return tx
+
+  return iterateTx(tx) as Transaction.LcdTransaction
 }
 
 async function generateTxEntities(txHashes: string[], block: BlockEntity): Promise<TxEntity[]> {
