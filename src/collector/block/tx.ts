@@ -9,7 +9,7 @@ import { collectorLogger as logger } from 'lib/logger'
 import { times, minus, plus, min, getIntegerPortion } from 'lib/math'
 import config from 'config'
 import { generateAccountTxs } from './accountTx'
-import { BOND_DENOM, BURN_TAX_UPGRADE_HEIGHT, BLOCKS_PER_WEEK } from 'lib/constant'
+import { BOND_DENOM, BURN_TAX_UPGRADE_HEIGHT, BLOCKS_PER_WEEK, BURN_TAX_REWORK_HEIGHT } from 'lib/constant'
 
 // Singleton class for tracking tax related parameters
 class TaxPolicy {
@@ -36,7 +36,12 @@ class TaxPolicy {
       return
     }
 
-    const [rate, lcdTaxCaps] = await Promise.all([lcd.getTaxRate(strHeight), lcd.getTaxCaps(strHeight)])
+    const intHeight = Number(strHeight)
+
+    const [rate, lcdTaxCaps] = await Promise.all([
+      intHeight >= BURN_TAX_REWORK_HEIGHT ? lcd.getBurnTaxRate(strHeight) : lcd.getTaxRate(strHeight),
+      lcd.getTaxCaps(strHeight)
+    ])
 
     TaxPolicy.rate = rate
     TaxPolicy.caps = mapValues(keyBy(lcdTaxCaps, 'denom'), 'tax_cap')
@@ -75,16 +80,23 @@ function getTaxCoins(lcdTx: Transaction.LcdTransaction, msg: Transaction.AminoMe
       coins = [msg.value.offer_coin]
       break
     }
+    // Tax in contracts is only paid on sending from contract to wallet, not contract to contract or wallet to contract
     case 'wasm/MsgInstantiateContract': {
-      coins = msg.value.init_coins || msg.value.funds
+      if (+lcdTx.height < BURN_TAX_REWORK_HEIGHT) {
+        coins = msg.value.init_coins || msg.value.funds
+      }
       break
     }
     case 'wasm/MsgInstantiateContract2': {
-      coins = msg.value.funds
+      if (+lcdTx.height < BURN_TAX_REWORK_HEIGHT) {
+        coins = msg.value.funds
+      }
       break
     }
     case 'wasm/MsgExecuteContract': {
-      coins = msg.value.coins || msg.value.funds
+      if (+lcdTx.height < BURN_TAX_REWORK_HEIGHT) {
+        coins = msg.value.coins || msg.value.funds
+      }
       break
     }
     case 'msgauth/MsgExecAuthorized':
@@ -144,13 +156,21 @@ function assignGasAndTax(lcdTx: Transaction.LcdTransaction) {
   const msgs = lcdTx.tx.value.msg
   const taxArr: string[][] = []
 
+  const reverseCharge = lcdTx.logs.some((log) =>
+    log?.events?.some(
+      (event) =>
+        event.type === 'tax_payment' &&
+        event.attributes.some((attr) => attr.key === 'reverse_charge' && attr.value === 'true')
+    )
+  )
+
   // gas = fee - tax
   const gasObj = msgs.reduce(
     (acc, msg) => {
       const msgTaxes = getTax(lcdTx, msg)
       const taxPerMsg: string[] = []
       msgTaxes.forEach(({ denom, amount }) => {
-        if (acc[denom]) {
+        if (acc[denom] && !reverseCharge) {
           acc[denom] = minus(acc[denom], amount)
         }
 
