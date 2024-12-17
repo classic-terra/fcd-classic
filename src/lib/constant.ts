@@ -10,6 +10,7 @@ export const ONE_DAY_IN_MS = 60000 * 60 * 24
 export const LOCAL_TERRA_CHAIN_ID = 'localterra'
 export const BOND_DENOM = 'uluna'
 export const BURN_TAX_UPGRADE_HEIGHT = 9_346_889
+export const BURN_TAX_REWORK_HEIGHT = 21_163_600
 // https://github.com/classic-terra/core/blob/952f56365dff51ce328caa7d766444369b7f3e0f/types/util/blocks.go#L8-L13
 export const BLOCKS_PER_MINUTE = 10
 export const BLOCKS_PER_HOUR = BLOCKS_PER_MINUTE * 60

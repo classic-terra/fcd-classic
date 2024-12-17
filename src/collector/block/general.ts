@@ -4,9 +4,10 @@ import { div } from 'lib/math'
 import * as lcd from 'lib/lcd'
 import { getStartOfPreviousMinuteTs } from 'lib/time'
 import { collectorLogger as logger } from 'lib/logger'
-import { BOND_DENOM } from 'lib/constant'
+import { BOND_DENOM, BURN_TAX_REWORK_HEIGHT } from 'lib/constant'
 
 export async function collectGeneral(mgr: EntityManager, timestamp: number, strHeight: string) {
+  const intHeight = Number(strHeight)
   const [
     taxRate,
     taxProceeds,
@@ -15,7 +16,7 @@ export async function collectGeneral(mgr: EntityManager, timestamp: number, strH
     taxCaps,
     { bondedTokens, notBondedTokens, issuances, stakingRatio }
   ] = await Promise.all([
-    lcd.getTaxRate(strHeight),
+    intHeight >= BURN_TAX_REWORK_HEIGHT ? lcd.getBurnTaxRate(strHeight) : lcd.getTaxRate(strHeight),
     lcd.getTaxProceeds(strHeight),
     lcd.getSeigniorageProceeds(strHeight),
     lcd.getCommunityPool(strHeight).then(

@@ -432,6 +432,10 @@ export async function getSeigniorageProceeds(strHeight?: string): Promise<string
     .seigniorage_proceeds
 }
 
+export async function getBurnTaxRate(strHeight?: string): Promise<string> {
+  return (await fetch(`/terra/tax/v1beta1/burn_tax_rate`, { height: calculateHeightParam(strHeight) })).tax_rate
+}
+
 export async function getTaxRate(strHeight?: string): Promise<string> {
   return (await fetch(`/terra/treasury/v1beta1/tax_rate`, { height: calculateHeightParam(strHeight) })).tax_rate
 }
