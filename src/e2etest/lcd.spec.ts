@@ -315,6 +315,10 @@ describe('LCD', () => {
     await expect(lcd.getTaxRate()).resolves.toBeString()
   })
 
+  test('getBurnTaxRate', async () => {
+    await expect(lcd.getBurnTaxRate()).resolves.toBeString()
+  })
+
   test('getTaxCap', async () => {
     await expect(lcd.getTaxCap('usdr')).resolves.toBe('1000000')
   })

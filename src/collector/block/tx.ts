@@ -9,7 +9,7 @@ import { collectorLogger as logger } from 'lib/logger'
 import { times, minus, plus, min, getIntegerPortion } from 'lib/math'
 import config from 'config'
 import { generateAccountTxs } from './accountTx'
-import { BOND_DENOM, BURN_TAX_UPGRADE_HEIGHT, BLOCKS_PER_WEEK } from 'lib/constant'
+import { BOND_DENOM, BURN_TAX_UPGRADE_HEIGHT, BLOCKS_PER_WEEK, BURN_TAX_REWORK_HEIGHT } from 'lib/constant'
 
 // Singleton class for tracking tax related parameters
 class TaxPolicy {
@@ -36,7 +36,12 @@ class TaxPolicy {
       return
     }
 
-    const [rate, lcdTaxCaps] = await Promise.all([lcd.getTaxRate(strHeight), lcd.getTaxCaps(strHeight)])
+    const intHeight = Number(strHeight)
+
+    const [rate, lcdTaxCaps] = await Promise.all([
+      intHeight >= BURN_TAX_REWORK_HEIGHT ? lcd.getBurnTaxRate(strHeight) : lcd.getTaxRate(strHeight),
+      lcd.getTaxCaps(strHeight)
+    ])
 
     TaxPolicy.rate = rate
     TaxPolicy.caps = mapValues(keyBy(lcdTaxCaps, 'denom'), 'tax_cap')
@@ -75,16 +80,23 @@ function getTaxCoins(lcdTx: Transaction.LcdTransaction, msg: Transaction.AminoMe
       coins = [msg.value.offer_coin]
       break
     }
+    // Tax in contracts is only paid on sending from contract to wallet, not contract to contract or wallet to contract
     case 'wasm/MsgInstantiateContract': {
-      coins = msg.value.init_coins || msg.value.funds
+      if (+lcdTx.height < BURN_TAX_REWORK_HEIGHT) {
+        coins = msg.value.init_coins || msg.value.funds
+      }
       break
     }
     case 'wasm/MsgInstantiateContract2': {
-      coins = msg.value.funds
+      if (+lcdTx.height < BURN_TAX_REWORK_HEIGHT) {
+        coins = msg.value.funds
+      }
       break
     }
     case 'wasm/MsgExecuteContract': {
-      coins = msg.value.coins || msg.value.funds
+      if (+lcdTx.height < BURN_TAX_REWORK_HEIGHT) {
+        coins = msg.value.coins || msg.value.funds
+      }
       break
     }
     case 'msgauth/MsgExecAuthorized':
@@ -144,13 +156,21 @@ function assignGasAndTax(lcdTx: Transaction.LcdTransaction) {
   const msgs = lcdTx.tx.value.msg
   const taxArr: string[][] = []
 
+  const reverseCharge = lcdTx.logs.some((log) =>
+    log?.events?.some(
+      (event) =>
+        event.type === 'tax_payment' &&
+        event.attributes.some((attr) => attr.key === 'reverse_charge' && attr.value === 'true')
+    )
+  )
+
   // gas = fee - tax
   const gasObj = msgs.reduce(
     (acc, msg) => {
       const msgTaxes = getTax(lcdTx, msg)
       const taxPerMsg: string[] = []
       msgTaxes.forEach(({ denom, amount }) => {
-        if (acc[denom]) {
+        if (acc[denom] && !reverseCharge) {
           acc[denom] = minus(acc[denom], amount)
         }
 
@@ -191,25 +211,48 @@ function assignGasAndTax(lcdTx: Transaction.LcdTransaction) {
 //Tx objects are hopefully not that deep, but just in case they are https://replit.com/@mkotsollaris/javascript-iterate-for-loop?v=1#index.js or something along those lines.
 //Going with simple recursion due time constaints.
 function sanitizeTx(tx: Transaction.LcdTransaction): Transaction.LcdTransaction {
-  function hasUnicode(s) {
-    // eslint-disable-next-line no-control-regex
-    return /[^\u0000-\u007f]/.test(s)
+  function hasProblematicUnicode(s: string) {
+    // Check for problematic Unicode characters
+    return (
+      // eslint-disable-next-line no-control-regex
+      /[^\u0000-\u007f]/.test(s) ||
+      // eslint-disable-next-line no-control-regex
+      /[\u0000-\u001f\u007f-\u009f\u00ad\u200b\u2028\u2029\u2060-\u206f\ufffd]/.test(s)
+    )
+  }
+
+  function encodeIfNeeded(value: string) {
+    if (hasProblematicUnicode(value)) {
+      return Buffer.from(value, 'utf8').toString('base64')
+    } else {
+      return value
+    }
   }
 
   const iterateTx = (obj) => {
-    Object.keys(obj).forEach((key) => {
-      if (typeof obj[key] === 'object' && obj[key] !== null) {
-        iterateTx(obj[key])
-      } else {
-        if (hasUnicode(obj[key])) {
-          const b = Buffer.from(obj[key])
-          obj[key] = b.toString('base64')
+    if (Array.isArray(obj)) {
+      return obj.map((item) => iterateTx(item))
+    } else if (typeof obj === 'object' && obj !== null) {
+      const encodedObj = {}
+      Object.keys(obj).forEach((key) => {
+        const encodedKey = encodeIfNeeded(key)
+        if (typeof obj[key] === 'object' && obj[key] !== null) {
+          encodedObj[encodedKey] = iterateTx(obj[key])
+        } else if (typeof obj[key] === 'string') {
+          encodedObj[encodedKey] = encodeIfNeeded(obj[key])
+        } else {
+          encodedObj[encodedKey] = obj[key]
         }
-      }
-    })
+      })
+      return encodedObj
+    } else if (typeof obj === 'string') {
+      return encodeIfNeeded(obj)
+    } else {
+      return obj
+    }
   }
-  iterateTx(tx)
-  return tx
+
+  return iterateTx(tx) as Transaction.LcdTransaction
 }
 
 async function generateTxEntities(txHashes: string[], block: BlockEntity): Promise<TxEntity[]> {
