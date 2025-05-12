@@ -1,5 +1,5 @@
 import { getConnection } from 'typeorm'
-import { BlockEntity, TxEntity } from 'orm'
+import { AccountTxEntity, BlockEntity, TxEntity } from 'orm'
 
 export interface GetTxListParam {
   offset?: number
@@ -127,58 +127,43 @@ function compactTransactionData(data: Transaction.LcdTransaction, address: strin
 }
 
 export async function getTxFromAccount(param: GetTxListParam): Promise<GetTxsResponse> {
-  if (!param.account) {
-    throw new TypeError(`Account address is required.`)
-  }
+  if (!param.account) throw new TypeError('Account address is required.')
+  if (!parseInt(param.limit as any, 10)) throw new TypeError('Invalid parameter: limit')
 
-  if (!parseInt(param.limit as any, 10)) {
-    throw new TypeError('Invalid parameter: limit')
-  }
-
-  let subQuery = `SELECT tx_id FROM account_tx WHERE account=$1 `
-  const params = [param.account]
-
-  const order: 'ASC' | 'DESC' = param.order && param.order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC'
+  const order: 'ASC' | 'DESC' = param.order?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC'
+  const qb = getConnection()
+    .getRepository(AccountTxEntity)
+    .createQueryBuilder('account_tx')
+    .innerJoinAndSelect('account_tx.tx', 'tx')
+    .where('account_tx.account = :account', { account: param.account })
 
   if (param.offset) {
-    subQuery += `AND tx_id ${order === 'ASC' ? '>' : '<'} ${param.offset} `
+    qb.andWhere(`account_tx.tx_id ${order === 'ASC' ? '>' : '<'} :offset`, { offset: param.offset })
   }
 
-  subQuery += `ORDER BY tx_id ${order} LIMIT ${Math.max(0, param.limit + 1)}`
+  qb.orderBy('account_tx.tx_id', order).limit(param.limit + 1)
 
-  const queryRunner = getConnection().createQueryRunner('slave')
+  const accountTxs: AccountTxEntity[] = await qb.getMany()
+  let next: number | undefined
 
-  try {
-    // Disable indexscan to force use bitmap scan for query speed
-    await queryRunner.query('SET enable_indexscan=false')
-    const accountTxs = await queryRunner.query(subQuery, params)
-    let next
+  if (accountTxs.length === param.limit + 1) {
+    next = Number(accountTxs[param.limit - 1].tx.id)
+    accountTxs.length = param.limit
+  }
 
-    if (param.limit + 1 === accountTxs.length) {
-      next = accountTxs[param.limit - 1].tx_id
-      accountTxs.length -= 1
-    }
-
-    const txs = accountTxs.length
-      ? await queryRunner.query(
-          `SELECT id, data, chain_id AS "chainId" FROM tx WHERE id IN (${accountTxs
-            .map((t) => t.tx_id)
-            .toString()}) ORDER BY id DESC`
-        )
-      : []
-
+  const txs = accountTxs.map((accountTx: AccountTxEntity) => {
+    const tx = accountTx.tx as TxEntity & { data: any; chainId: string; id: number }
     return {
-      next,
-      limit: param.limit,
-      txs: txs.map((tx) => ({
-        id: tx.id,
-        chainId: tx.chainId,
-        ...(param.compact ? compactTransactionData(tx.data, param.account as string) : tx.data)
-      }))
+      id: tx.id,
+      chainId: tx.chainId,
+      ...(param.compact ? compactTransactionData(tx.data, param.account as string) : tx.data)
     }
-  } finally {
-    await queryRunner.query('SET enable_indexscan=true')
-    queryRunner.release()
+  })
+
+  return {
+    next,
+    limit: param.limit,
+    txs
   }
 }
 
